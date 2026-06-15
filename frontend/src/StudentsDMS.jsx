@@ -107,6 +107,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
   const [showOrderedOnly, setShowOrderedOnly] = useState(false);
   const [showReceivedOnly, setShowReceivedOnly] = useState(false);
+  const [showPendingNotesOnly, setShowPendingNotesOnly] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/students`, { cache: 'no-store' })
@@ -629,6 +630,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
     const matchesVerified = showVerifiedOnly ? s.routeWorkVerification === true : true;
     const matchesOrdered = showOrderedOnly ? s.routeEduOrdered === true : true;
     const matchesReceived = showReceivedOnly ? s.routeEduReceived === true : true;
+    const matchesPendingNotes = showPendingNotesOnly ? !!s.subPendingNotes : true;
     
     // Dynamic Filters
     const visibleFilters = tableColumns.filter(c => c.filterable);
@@ -647,7 +649,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
       return studentVal.includes(filterVal);
     });
 
-    return matchesSearch && matchesCollege && matchesVerified && matchesOrdered && matchesReceived && matchesFilters;
+    return matchesSearch && matchesCollege && matchesVerified && matchesOrdered && matchesReceived && matchesPendingNotes && matchesFilters;
   });
 
   const uniqueRecruiters = [...new Set(students.map(s => s.recruiter).filter(Boolean))];
@@ -755,22 +757,29 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
     const status = student.appStatus || 'Assign for submission';
     
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '1.5rem' }}>
-        <span 
-          className="app-status-text"
-          onClick={() => setNotesModal({ show: true, student, fieldType: 'appStatus', note: '', newValue: status })} 
-          onContextMenu={(e) => {
-            e.preventDefault();
-            if (status === 'Submission ongoing' || status === 'Submitted') {
-              setChaserModal({ show: true, student, readOnly: true });
-            }
-          }}
-          style={{ cursor: 'pointer', color: (status === 'Submitted' || status === 'Completed') ? '#34d399' : (status === 'Submission ongoing' || status === 'Awaiting submission and QC') ? '#60a5fa' : (status === 'Urgent Submission') ? '#ef4444' : '#fbbf24', fontWeight: 'bold' }}
-        >
-          {status}
-        </span>
-        {student.subPendingNotes && (status === 'Submitted' || status === 'Completed') && (
-          <span title={`Pending Notes: ${student.subPendingNotes}`} style={{ cursor: 'help', fontSize: '1.1rem' }}>⚠️</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minHeight: '1.5rem', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span 
+            className="app-status-text"
+            onClick={() => setNotesModal({ show: true, student, fieldType: 'appStatus', note: '', newValue: status })} 
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (status === 'Submission ongoing' || status === 'Submitted') {
+                setChaserModal({ show: true, student, readOnly: true });
+              }
+            }}
+            style={{ cursor: 'pointer', color: (status === 'Submitted' || status === 'Completed') ? '#34d399' : (status === 'Submission ongoing' || status === 'Awaiting submission and QC') ? '#60a5fa' : (status === 'Urgent Submission') ? '#ef4444' : '#fbbf24', fontWeight: 'bold' }}
+          >
+            {status}
+          </span>
+          {student.subPendingNotes && (
+            <span title={`Pending Notes: ${student.subPendingNotes}`} style={{ cursor: 'help', fontSize: '1.1rem' }}>⚠️</span>
+          )}
+        </div>
+        {student.subPendingNotes && (
+          <span style={{ fontSize: '0.75rem', color: '#fbbf24', fontStyle: 'italic', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={student.subPendingNotes}>
+            📝 {student.subPendingNotes}
+          </span>
         )}
       </div>
     );
@@ -1003,7 +1012,8 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
             <button onClick={() => setShowVerifiedOnly(!showVerifiedOnly)} style={{ padding: '0.4rem 1rem', background: showVerifiedOnly ? '#10b981' : 'var(--bg-surface)', color: showVerifiedOnly ? '#fff' : 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>{showVerifiedOnly ? '✓ Verified Only' : 'Show All Verified'}</button>
             <button onClick={() => setShowOrderedOnly(!showOrderedOnly)} style={{ padding: '0.4rem 1rem', background: showOrderedOnly ? '#3b82f6' : 'var(--bg-surface)', color: showOrderedOnly ? '#fff' : 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>{showOrderedOnly ? '✓ Ordered Only' : 'Show All Ordered'}</button>
             <button onClick={() => setShowReceivedOnly(!showReceivedOnly)} style={{ padding: '0.4rem 1rem', background: showReceivedOnly ? '#8b5cf6' : 'var(--bg-surface)', color: showReceivedOnly ? '#fff' : 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>{showReceivedOnly ? '✓ Received Only' : 'Show All Received'}</button>
-            <button onClick={() => { setFilters({}); setShowVerifiedOnly(false); setShowOrderedOnly(false); setShowReceivedOnly(false); }} style={{ padding: '0.4rem 1rem', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Clear Filters</button>
+            <button onClick={() => setShowPendingNotesOnly(!showPendingNotesOnly)} style={{ padding: '0.4rem 1rem', background: showPendingNotesOnly ? '#fbbf24' : 'var(--bg-surface)', color: showPendingNotesOnly ? '#000' : 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>{showPendingNotesOnly ? '⚠️ Pending Notes Only' : 'Show All Pending Notes'}</button>
+            <button onClick={() => { setFilters({}); setShowVerifiedOnly(false); setShowOrderedOnly(false); setShowReceivedOnly(false); setShowPendingNotesOnly(false); }} style={{ padding: '0.4rem 1rem', background: '#374151', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Clear Filters</button>
           </div>
         </div>
       )}

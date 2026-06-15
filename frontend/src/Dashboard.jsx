@@ -150,6 +150,69 @@ const Dashboard = ({ currentUserRole }) => {
     }
   };
 
+  const handleDashboardTaskDoneToggle = async (type, isDoneVal) => {
+    const student = assignModal.student;
+    const currentTasksCompleted = student.tasksCompleted || {};
+    const newTasksCompleted = { ...currentTasksCompleted, [type]: isDoneVal };
+    
+    let updatePayload = { tasksCompleted: newTasksCompleted };
+    
+    // Check if we need to prompt for pending notes
+    if (isDoneVal && (type === 'sub' || type === 'qa')) {
+      const noteInput = window.prompt("Any pending files/notes (e.g. passport, poa)? Leave blank if fully complete:", student.subPendingNotes || "");
+      if (noteInput === null) return; // Cancelled
+      updatePayload.subPendingNotes = noteInput.trim();
+    }
+    
+    // Check if CV, PS, QA, and Sub are all completed (if assigned)
+    if (student.chasers) {
+      const isCvDone = student.chasers.cv ? newTasksCompleted.cv : true;
+      const isPsDone = student.chasers.ps ? newTasksCompleted.ps : true;
+      const isQaDone = student.chasers.qa ? newTasksCompleted.qa : true;
+      const isSubDone = student.chasers.sub ? newTasksCompleted.sub : true;
+      
+      if (isCvDone && isPsDone && isQaDone && isSubDone) {
+        updatePayload.appStatus = 'Submitted';
+      }
+    }
+    
+    const updatedStudent = { ...student, ...updatePayload };
+    setAssignModal({ show: true, student: updatedStudent, initialStatus: assignModal.initialStatus });
+    setStudents(students.map(s => s._id === student._id ? updatedStudent : s));
+    
+    try {
+      await fetch(`${API_BASE}/api/students/${student._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+      fetch(`${API_BASE}/api/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Student Edit', details: `Toggled task ${type} completion status to ${isDoneVal} for ${student.name}` })
+      }).catch(e => console.error(e));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDashboardPendingNotesChange = async (val) => {
+    const student = assignModal.student;
+    const updatedStudent = { ...student, subPendingNotes: val };
+    setAssignModal({ show: true, student: updatedStudent, initialStatus: assignModal.initialStatus });
+    setStudents(students.map(s => s._id === student._id ? updatedStudent : s));
+    
+    try {
+      await fetch(`${API_BASE}/api/students/${student._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subPendingNotes: val })
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSfeAssignDropdown = async (val) => {
     const student = sfeAssignModal.student;
     if (!student) return;
@@ -578,7 +641,12 @@ const Dashboard = ({ currentUserRole }) => {
     return (
       <div key={student._id} onClick={handleClick} style={{ background: 'var(--bg-surface-hover)', padding: '1rem', borderRadius: '8px', borderLeft: `4px solid ${colColor}`, cursor: isClickable ? 'pointer' : 'default', marginBottom: '0.8rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <strong style={{ color: 'var(--text-primary)' }}>{student.name}</strong>
+          <strong style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            {student.name}
+            {student.subPendingNotes && (
+              <span title={`Pending: ${student.subPendingNotes}`} style={{ fontSize: '0.9rem', cursor: 'help' }}>⚠️</span>
+            )}
+          </strong>
           <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{student.studentId}</span>
         </div>
         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -782,7 +850,10 @@ const Dashboard = ({ currentUserRole }) => {
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>{colUrgent.length}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Urgent</div>
             </div>
-            <div onClick={() => setShowAdminWorkflowModal('completed')} style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #10b981', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+             <div onClick={() => setShowAdminWorkflowModal('completed')} style={{ position: 'relative', background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #10b981', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+              {colCompleted.some(s => s.subPendingNotes) && (
+                <span style={{ position: 'absolute', top: '5px', right: '8px', fontSize: '1rem', cursor: 'help' }} title="Some completed students have pending notes">⚠️</span>
+              )}
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>{colCompleted.length}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Completed</div>
             </div>
@@ -2083,7 +2154,7 @@ const Dashboard = ({ currentUserRole }) => {
               Assign tasks for <strong style={{ color: 'var(--text-primary)' }}>{assignModal.student.name}</strong>.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
               {[
                 { type: 'cv', label: '📝 CV Writer' },
                 { type: 'ps', label: '📄 PS Writer' },
@@ -2091,11 +2162,29 @@ const Dashboard = ({ currentUserRole }) => {
                 { type: 'sub', label: '📤 Submission & QC Checker' }
               ].map(({ type, label }) => {
                 const isEditable = assignModal.initialStatus?.toLowerCase() === 'assign for submission' || assignModal.initialStatus?.toLowerCase() === 'urgent submission';
+                const isDone = !!assignModal.student.tasksCompleted?.[type];
                 return (
-                <div key={type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <label style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{label}</label>
+                <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--bg-color)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{label}</label>
+                    <button 
+                      onClick={() => handleDashboardTaskDoneToggle(type, !isDone)}
+                      style={{ 
+                        background: isDone ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)', 
+                        color: isDone ? '#10b981' : '#ef4444', 
+                        border: `1px solid ${isDone ? '#10b981' : '#ef4444'}`,
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isDone ? '✓ Completed' : '⏳ Pending'}
+                    </button>
+                  </div>
                   {!isEditable ? (
-                    <span style={{ padding: '0.5rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
+                    <span style={{ padding: '0.5rem 0', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
                       {(assignModal.student.chasers && assignModal.student.chasers[type]) || 'Unassigned'} (Read-Only)
                     </span>
                   ) : (
@@ -2103,7 +2192,7 @@ const Dashboard = ({ currentUserRole }) => {
                     value={(assignModal.student.chasers && assignModal.student.chasers[type]) || ''}
                     onChange={(e) => handleDashboardChaserChange(type, e.target.value)}
                     disabled={assignModal.student.appStatus === 'Submitted'}
-                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-primary)', width: '200px', opacity: assignModal.student.appStatus === 'Submitted' ? 0.6 : 1 }}
+                    style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-primary)', width: '100%', opacity: assignModal.student.appStatus === 'Submitted' ? 0.6 : 1 }}
                   >
                     <option value="">Unassigned</option>
                     {allUsers.map(u => <option key={u._id} value={u.name}>{u.name}</option>)}
@@ -2113,32 +2202,20 @@ const Dashboard = ({ currentUserRole }) => {
               )})}
             </div>
 
-            {/* Manual Application Status buttons temporarily locked as per user request */}
-            {/* 
-            {assignModal.student.appStatus !== 'Submitted' && (
-              <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>Change Application Status</h4>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {['Assign for submission', 'Submission ongoing', 'Urgent Submission', 'Submitted'].map(status => (
-                    <button
-                      key={status}
-                      onClick={() => handleAppStatusChange(status)}
-                      style={{ 
-                        padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
-                        background: assignModal.student.appStatus?.toLowerCase() === status.toLowerCase() ? '#3b82f6' : 'var(--bg-surface)',
-                        color: assignModal.student.appStatus?.toLowerCase() === status.toLowerCase() ? '#fff' : 'var(--text-primary)',
-                        border: '1px solid var(--border-color)'
-                      }}
-                    >
-                      {status === 'Submitted' ? 'Completed / Submitted' : status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )} 
-            */}
+            {/* Pending Notes / Docs Text Area */}
+            <div style={{ background: 'var(--bg-color)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                ⚠️ Pending Notes / Docs
+              </h4>
+              <textarea 
+                value={assignModal.student.subPendingNotes || ''}
+                onChange={(e) => handleDashboardPendingNotesChange(e.target.value)}
+                placeholder="Enter missing documents or pending notes here (e.g., Passport, POA missing)..."
+                style={{ width: '100%', height: '80px', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-primary)', resize: 'vertical', fontSize: '0.85rem' }}
+              />
+            </div>
             
-            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button onClick={() => setAssignModal({ show: false, student: null })} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Done</button>
             </div>
           </div>

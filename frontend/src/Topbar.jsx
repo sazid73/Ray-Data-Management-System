@@ -141,7 +141,7 @@ const Topbar = ({ currentView, currentUser, currentUserRole, currentUserData, to
 
   const handleMarkDmsTaskDone = async (studentId, currentTasksCompleted, taskType) => {
     let pendingNotes = "";
-    if (taskType === 'sub') {
+    if (taskType === 'sub' || taskType === 'qa') {
       const noteInput = window.prompt("Any pending files/notes (e.g. passport, poa)? Leave blank if fully complete:");
       if (noteInput === null) return; // Cancelled
       pendingNotes = noteInput.trim();
@@ -171,9 +171,9 @@ const Topbar = ({ currentView, currentUser, currentUserRole, currentUserData, to
             updatePayload.appStatus = 'Submitted';
           }
         }
-        if (taskType === 'sub' && pendingNotes) {
+        if ((taskType === 'sub' || taskType === 'qa') && pendingNotes) {
           updatePayload.subPendingNotes = pendingNotes;
-        } else if (taskType === 'sub') {
+        } else if (taskType === 'sub' || taskType === 'qa') {
           updatePayload.subPendingNotes = ""; // Clear if previously existed but now fully complete
         }
       }
