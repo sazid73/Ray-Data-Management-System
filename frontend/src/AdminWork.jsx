@@ -56,23 +56,16 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     const loadOfficers = async () => {
       try {
         const users = await api.getUsers();
-        // Filter users who have 'Admin Officer' in jobTitles or are admin task assigners
+        // Keep ONLY users who have the job title 'Admin Officer'
         const adminOfficers = users.filter(u => {
-          const titles = u.jobTitles || [];
-          return titles.includes('Admin Officer') || 
-                 u.role === 'admins for task assigns' || 
-                 u.role === 'super_admin';
+          const titles = (u.jobTitles || []).map(t => (t || '').toLowerCase().trim());
+          return titles.includes('admin officer');
         }).map(u => ({
           name: u.name,
-          role: (u.jobTitles && u.jobTitles[0]) || (u.role === 'super_admin' ? 'Super Admin' : 'Admin Officer')
+          role: 'Admin Officer'
         }));
 
-        if (adminOfficers.length > 0) {
-          setEmployees(adminOfficers);
-        } else {
-          // Fallback if no specific role set
-          setEmployees(users.slice(0, 10).map(u => ({ name: u.name, role: u.role || 'Admin Officer' })));
-        }
+        setEmployees(adminOfficers);
       } catch (err) {
         console.error('Failed to load users for Admin Work', err);
       }
