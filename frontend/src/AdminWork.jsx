@@ -13,6 +13,43 @@ const BENCHMARKS = {
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const WEEKS = [1, 2, 3, 4];
 
+// Presets for Admin Officer Miscellaneous tasks
+const ADMIN_MISC_TASKS = [
+  { label: 'Dms update (status+Docs+Notes)', defaultM: 20 },
+  { label: 'Qualification sheet', defaultM: 20 },
+  { label: 'PAL Form', defaultM: 15 },
+  { label: 'Consent Form', defaultM: 15 },
+  { label: 'PS (AI Check & Plagiarism Check) (30-35m)', defaultM: 35 },
+  { label: 'Pre task exam (1 hr)', defaultM: 60 },
+  { label: 'Work ref form + Letter', defaultM: 20 },
+  { label: 'Prepare Sheets (Sampling + Enrolled students Update)', defaultM: 30 },
+  { label: 'Email Check (Info + Admin)', defaultM: 30 },
+  { label: 'Interview book', defaultM: 15 },
+  { label: 'Pre Task QA (AI & Plag Check) (30-35m)', defaultM: 35 },
+  { label: 'Revise docs (15-20m)', defaultM: 20 },
+  { label: 'Call and gap report (40m)', defaultM: 40 },
+  { label: 'Reminder call report (Email & whatsapp text) (1.5-2 hr)', defaultM: 100 },
+  { label: 'Bonline check (5-15m)', defaultM: 15 },
+  { label: 'Prep & missing doc report (15-20m)', defaultM: 20 }
+];
+
+// Presets for College Coordinator Miscellaneous tasks
+const COORDINATOR_MISC_TASKS = [
+  { label: '1. Clg groups check, reply, followup', defaultM: 30 },
+  { label: '2. Live sheet check & followup', defaultM: 30 },
+  { label: '3. Mails check', defaultM: 30 },
+  { label: '4. Interview bookings', defaultM: 20 },
+  { label: '5. Portal check', defaultM: 20 },
+  { label: '6. Issue solving - text and calls', defaultM: 40 },
+  { label: '7. Chase students (if necessary)', defaultM: 30 },
+  { label: '8. Pass, fail, resit - updates and notes', defaultM: 30 },
+  { label: '9. College pipeline meeting', defaultM: 60 },
+  { label: '10. College regular update meeting with team', defaultM: 45 },
+  { label: '11. Submission, qc, Documents upload', defaultM: 40 },
+  { label: '12. Offer, enrollment, sfe issue solve', defaultM: 45 },
+  { label: '13. Docs check & approve', defaultM: 30 }
+];
+
 // Generate list of available months (last 6 months to next 6 months)
 const generateMonthsList = () => {
   const list = [];
@@ -97,21 +134,26 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
            (currentUserData?.abilities && currentUserData.abilities.includes('super_admin'));
   }, [currentUserRole, currentUserData]);
 
-  // 1. Fetch real Admin Officers from Supabase Users
+  // 1. Fetch real Admin Officers & College Coordinators from Supabase Users
   useEffect(() => {
     const loadOfficers = async () => {
       try {
         const users = await api.getUsers();
-        // Keep ONLY users who have the job title 'Admin Officer'
-        const adminOfficers = users.filter(u => {
+        // Keep users who have the job title 'Admin Officer' or 'College Coordinator'
+        const relevantEmployees = users.filter(u => {
           const titles = (u.jobTitles || []).map(t => (t || '').toLowerCase().trim());
-          return titles.includes('admin officer');
-        }).map(u => ({
-          name: u.name,
-          role: 'Admin Officer'
-        }));
+          return titles.includes('admin officer') || titles.includes('college coordinator');
+        }).map(u => {
+          const titles = (u.jobTitles || []).map(t => (t || '').toLowerCase().trim());
+          const isCoordinator = titles.includes('college coordinator');
+          return {
+            name: u.name,
+            role: isCoordinator ? 'College Coordinator' : 'Admin Officer',
+            isCoordinator
+          };
+        });
 
-        setEmployees(adminOfficers);
+        setEmployees(relevantEmployees);
       } catch (err) {
         console.error('Failed to load users for Admin Work', err);
       }
@@ -157,15 +199,35 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     return currentUser && currentUser.toLowerCase() === empName.toLowerCase();
   };
 
+  const handleAddMiscTask = (empName, week, day, taskLabel, taskMinutes, field = 'misc', timeField = 'miscM') => {
+    if (!canEditEmployee(empName)) return;
+
+    const key = `W${week}_${day}`;
+    setWorkData(prev => {
+      const empData = { ...(prev[empName] || {}) };
+      const dayData = { ...(empData[key] || { cv: 0, ps: 0, qa: 0, sub: 0, misc: '', miscM: 0, coordMisc: '', coordMiscM: 0, remarksList: [] }) };
+
+      const currentText = dayData[field] || '';
+      const newText = currentText ? `${currentText}; ${taskLabel}` : taskLabel;
+      dayData[field] = newText;
+      dayData[timeField] = (Number(dayData[timeField]) || 0) + (Number(taskMinutes) || 0);
+
+      empData[key] = dayData;
+      const next = { ...prev, [empName]: empData };
+      persistWorkData(next, selectedMonth);
+      return next;
+    });
+  };
+
   const handleCellChange = (empName, week, day, field, value) => {
     if (!canEditEmployee(empName)) return;
 
     const key = `W${week}_${day}`;
     setWorkData(prev => {
       const empData = { ...(prev[empName] || {}) };
-      const dayData = { ...(empData[key] || { cv: 0, ps: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] }) };
+      const dayData = { ...(empData[key] || { cv: 0, ps: 0, qa: 0, sub: 0, misc: '', miscM: 0, coordMisc: '', coordMiscM: 0, remarksList: [] }) };
 
-      if (field === 'misc') {
+      if (field === 'misc' || field === 'coordMisc') {
         dayData[field] = value;
       } else {
         dayData[field] = Math.max(0, parseInt(value) || 0);
@@ -185,14 +247,15 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     const qa = Number(dayLog.qa) || 0;
     const sub = Number(dayLog.sub) || 0;
     const miscM = Number(dayLog.miscM) || 0;
+    const coordMiscM = Number(dayLog.coordMiscM) || 0;
 
-    const totalMinutes = (cv * BENCHMARKS.cv) + (ps * BENCHMARKS.ps) + (qa * BENCHMARKS.qa) + (sub * BENCHMARKS.sub) + miscM;
+    const totalMinutes = (cv * BENCHMARKS.cv) + (ps * BENCHMARKS.ps) + (qa * BENCHMARKS.qa) + (sub * BENCHMARKS.sub) + miscM + coordMiscM;
     const totalHours = totalMinutes / 60;
     const dailyPct = BENCHMARKS.dailyShiftMinutes > 0 ? (totalMinutes / BENCHMARKS.dailyShiftMinutes) : 0;
     const isTargetMet = dailyPct >= 1.0;
 
     return {
-      cv, ps, qa, sub, miscM,
+      cv, ps, qa, sub, miscM, coordMiscM,
       totalMinutes,
       totalHours,
       dailyPct,
@@ -204,7 +267,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
   // Helper to compute weekly stats for an employee
   const calculateWeekSummary = (empName, week) => {
     const empData = workData[empName] || {};
-    let totalCV = 0, totalPS = 0, totalQA = 0, totalSub = 0, totalMiscM = 0;
+    let totalCV = 0, totalPS = 0, totalQA = 0, totalSub = 0, totalMiscM = 0, totalCoordMiscM = 0;
     let totalMinutes = 0;
     let daysLogged = 0;
 
@@ -215,6 +278,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
       totalQA += metrics.qa;
       totalSub += metrics.sub;
       totalMiscM += metrics.miscM;
+      totalCoordMiscM += metrics.coordMiscM;
       totalMinutes += metrics.totalMinutes;
       if (metrics.totalMinutes > 0) daysLogged++;
     });
@@ -229,6 +293,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
       totalQA,
       totalSub,
       totalMiscM,
+      totalCoordMiscM,
       totalMinutes,
       totalHours,
       avgPct,
@@ -339,17 +404,23 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                   <thead>
                     <tr>
                       <th style={{ width: '95px' }}>Day</th>
-                      <th style={{ width: '80px' }}>CV (20m)</th>
-                      <th style={{ width: '80px' }}>PS (20m)</th>
-                      <th style={{ width: '80px' }}>QA (20m)</th>
-                      <th style={{ width: '95px' }}>Sub & QC (30m)</th>
-                      <th>Extra Work (Shift Tasks/Meetings)</th>
-                      <th style={{ width: '100px' }}>Extra (Mins)</th>
-                      <th style={{ width: '105px' }}>Total Time</th>
+                      <th style={{ width: '75px' }}>CV (20m)</th>
+                      <th style={{ width: '75px' }}>PS (20m)</th>
+                      <th style={{ width: '75px' }}>QA (20m)</th>
+                      <th style={{ width: '90px' }}>Sub & QC (30m)</th>
+                      <th>Admin Extra / Miscellaneous Work</th>
+                      <th style={{ width: '90px' }}>Misc (M)</th>
+                      {emp.isCoordinator && (
+                        <>
+                          <th style={{ background: 'rgba(139, 92, 246, 0.08)' }}>College Coordinator Extra Tasks</th>
+                          <th style={{ width: '95px', background: 'rgba(139, 92, 246, 0.08)' }}>Coord (M)</th>
+                        </>
+                      )}
+                      <th style={{ width: '100px' }}>Total Time</th>
                       <th style={{ width: '85px' }}>Total Hours</th>
-                      <th style={{ width: '80px' }}>Shift</th>
-                      <th style={{ width: '80px' }}>Daily %</th>
-                      <th style={{ width: '140px' }}>Status & Remarks</th>
+                      <th style={{ width: '75px' }}>Shift</th>
+                      <th style={{ width: '75px' }}>Daily %</th>
+                      <th style={{ width: '135px' }}>Status & Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -409,15 +480,38 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                               onChange={e => handleCellChange(emp.name, week, day, 'sub', e.target.value)}
                             />
                           </td>
+                          {/* Admin Officer Miscellaneous Column */}
                           <td>
-                            <textarea
-                              rows={2}
-                              disabled={!editable}
-                              className="table-textarea-misc"
-                              placeholder="Extra works & times during shift (meetings, training, etc.)..."
-                              value={dayLog.misc || ''}
-                              onChange={e => handleCellChange(emp.name, week, day, 'misc', e.target.value)}
-                            />
+                            <div className="misc-cell-container">
+                              {editable && (
+                                <select
+                                  className="misc-quick-dropdown"
+                                  value=""
+                                  onChange={e => {
+                                    if (!e.target.value) return;
+                                    const opt = ADMIN_MISC_TASKS.find(t => t.label === e.target.value);
+                                    if (opt) {
+                                      handleAddMiscTask(emp.name, week, day, opt.label, opt.defaultM, 'misc', 'miscM');
+                                    }
+                                  }}
+                                >
+                                  <option value="">➕ Select / Add Admin Misc Task...</option>
+                                  {ADMIN_MISC_TASKS.map((t, idx) => (
+                                    <option key={idx} value={t.label}>
+                                      {t.label} (+{t.defaultM}m)
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              <textarea
+                                rows={2}
+                                disabled={!editable}
+                                className="table-textarea-misc"
+                                placeholder="Extra tasks & times during shift (meetings, training, custom work)..."
+                                value={dayLog.misc || ''}
+                                onChange={e => handleCellChange(emp.name, week, day, 'misc', e.target.value)}
+                              />
+                            </div>
                           </td>
                           <td>
                             <input
@@ -429,6 +523,55 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                               onChange={e => handleCellChange(emp.name, week, day, 'miscM', e.target.value)}
                             />
                           </td>
+
+                          {/* Extra Column for College Coordinator */}
+                          {emp.isCoordinator && (
+                            <>
+                              <td style={{ background: 'rgba(139, 92, 246, 0.03)' }}>
+                                <div className="misc-cell-container">
+                                  {editable && (
+                                    <select
+                                      className="misc-quick-dropdown"
+                                      value=""
+                                      onChange={e => {
+                                        if (!e.target.value) return;
+                                        const opt = COORDINATOR_MISC_TASKS.find(t => t.label === e.target.value);
+                                        if (opt) {
+                                          handleAddMiscTask(emp.name, week, day, opt.label, opt.defaultM, 'coordMisc', 'coordMiscM');
+                                        }
+                                      }}
+                                    >
+                                      <option value="">➕ Select Coordinator Task...</option>
+                                      {COORDINATOR_MISC_TASKS.map((t, idx) => (
+                                        <option key={idx} value={t.label}>
+                                          {t.label} (+{t.defaultM}m)
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                  <textarea
+                                    rows={2}
+                                    disabled={!editable}
+                                    className="table-textarea-misc"
+                                    placeholder="College Coordinator extra tasks & notes..."
+                                    value={dayLog.coordMisc || ''}
+                                    onChange={e => handleCellChange(emp.name, week, day, 'coordMisc', e.target.value)}
+                                  />
+                                </div>
+                              </td>
+                              <td style={{ background: 'rgba(139, 92, 246, 0.03)' }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  disabled={!editable}
+                                  className="table-input table-input-num"
+                                  value={dayLog.coordMiscM !== undefined ? dayLog.coordMiscM : 0}
+                                  onChange={e => handleCellChange(emp.name, week, day, 'coordMiscM', e.target.value)}
+                                />
+                              </td>
+                            </>
+                          )}
+
                           <td style={{ fontWeight: 600 }}>{metrics.totalMinutes} Mins</td>
                           <td style={{ fontWeight: 600 }}>{metrics.totalHours.toFixed(1)} hrs</td>
                           <td style={{ color: 'var(--text-secondary)' }}>360 Mins</td>
@@ -473,6 +616,12 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                       <td>{weekSummary.totalSub} Subs</td>
                       <td>Weekly Totals & Average:</td>
                       <td>{weekSummary.totalMiscM} Mins</td>
+                      {emp.isCoordinator && (
+                        <>
+                          <td>Coord Total:</td>
+                          <td>{weekSummary.totalCoordMiscM} Mins</td>
+                        </>
+                      )}
                       <td style={{ color: '#3b82f6' }}>{weekSummary.totalMinutes} Mins</td>
                       <td style={{ color: '#3b82f6' }}>{weekSummary.totalHours.toFixed(1)} hrs</td>
                       <td>1,800 Mins</td>
@@ -540,7 +689,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
             className={`admin-tab-btn ${activeTab === emp.name ? 'active' : ''}`}
             onClick={() => setActiveTab(emp.name)}
           >
-            👤 {emp.name}
+            👤 {emp.name} {emp.isCoordinator && <span className="coordinator-badge" style={{ marginLeft: '0.4rem' }}>Coordinator</span>}
           </button>
         ))}
       </div>

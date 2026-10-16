@@ -15,7 +15,7 @@ const Settings = ({ currentUserRole, currentUser, currentUserData }) => {
   const [editingUser, setEditingUser] = useState(null); // Used to edit an existing user's config
   const [targetsList, setTargetsList] = useState([]);
 
-  const JOB_TITLES = ['Recruiter', 'Chaser', 'Prep Coach', 'Admin Officer', 'Enrollment Officer', 'SFE Officer', 'Manager', 'Team Leader', 'Assistant Team Leader'];
+  const JOB_TITLES = ['Recruiter', 'Chaser', 'Prep Coach', 'Admin Officer', 'College Coordinator', 'Enrollment Officer', 'SFE Officer', 'Manager', 'Team Leader', 'Assistant Team Leader'];
   const ABILITIES = [
     { id: 'super_admin', label: 'Super Admin (Full Access)' },
     { id: 'manage_users', label: 'Manage Users & Access' },
