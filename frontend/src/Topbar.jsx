@@ -1,6 +1,7 @@
 import SearchableSelect from './SearchableSelect';
 import React from 'react';
 import './Topbar.css';
+import { api } from './api';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -182,7 +183,34 @@ const Topbar = ({ currentView, currentUser, currentUserRole, currentUserData, to
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload)
       });
-      if (res.ok) fetchNotifications();
+      if (res.ok) {
+        // Auto-log to Admin Work Tracker with benchmark duration and remarks if needed
+        const defaultMins = taskType === 'sub' ? 30 : 20;
+        let loggedDuration = defaultMins;
+        let remarks = "";
+        
+        // Check if user wants to log specific duration or remark
+        const timeInput = window.prompt(`Minutes spent on ${taskType.toUpperCase()} (Benchmark is ${defaultMins}m):`, String(defaultMins));
+        if (timeInput !== null && timeInput.trim()) {
+          const parsed = parseInt(timeInput.trim());
+          if (!isNaN(parsed) && parsed > 0) {
+            loggedDuration = parsed;
+            if (loggedDuration !== defaultMins) {
+              remarks = `${taskType.toUpperCase()} took ${loggedDuration}m (Benchmark: ${defaultMins}m)`;
+            }
+          }
+        }
+
+        api.logDmsTaskCompletion({
+          employeeName: currentUser,
+          taskType,
+          studentName: studentId,
+          durationMinutes: loggedDuration,
+          remarks
+        }).catch(e => console.warn(e));
+
+        fetchNotifications();
+      }
     } catch (err) {
       console.error(err);
     }

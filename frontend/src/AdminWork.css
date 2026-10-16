@@ -38,6 +38,26 @@
   flex-wrap: wrap;
 }
 
+.month-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+}
+
+.month-selector select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+}
+
 .benchmark-badge {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
@@ -336,10 +356,70 @@
   background: var(--bg-surface);
 }
 
+.table-input:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-primary);
+  cursor: default;
+}
+
 .table-input-num {
   width: 65px;
   text-align: center;
   font-weight: 600;
+}
+
+/* Textarea for Miscellaneous tasks so full text is clearly visible */
+.table-textarea-misc {
+  width: 100%;
+  min-width: 250px;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.table-textarea-misc:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: var(--bg-surface);
+}
+
+.table-textarea-misc:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-primary);
+  cursor: default;
+  resize: none;
+}
+
+/* Remarks & Overtime Pills */
+.remarks-pill {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-weight: 600;
+}
+
+.remarks-pill-warn {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.remarks-pill-ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
 }
 
 .week-section-header {

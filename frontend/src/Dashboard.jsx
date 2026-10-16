@@ -1,5 +1,6 @@
 import SearchableSelect from './SearchableSelect';
 import React, { useState, useEffect } from 'react';
+import { api } from './api';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -186,6 +187,36 @@ const Dashboard = ({ currentUserRole }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatePayload)
       });
+
+      if (isDoneVal) {
+        // Find assigned officer for this task type
+        const assignedOfficer = student.chasers ? student.chasers[type] : null;
+        if (assignedOfficer) {
+          const defaultMins = type === 'sub' ? 30 : 20;
+          let loggedDuration = defaultMins;
+          let remarks = "";
+
+          const timeInput = window.prompt(`Minutes spent on ${type.toUpperCase()} for ${assignedOfficer} (Benchmark is ${defaultMins}m):`, String(defaultMins));
+          if (timeInput !== null && timeInput.trim()) {
+            const parsed = parseInt(timeInput.trim());
+            if (!isNaN(parsed) && parsed > 0) {
+              loggedDuration = parsed;
+              if (loggedDuration !== defaultMins) {
+                remarks = `${type.toUpperCase()} took ${loggedDuration}m (Benchmark: ${defaultMins}m)`;
+              }
+            }
+          }
+
+          api.logDmsTaskCompletion({
+            employeeName: assignedOfficer,
+            taskType: type,
+            studentName: student.name,
+            durationMinutes: loggedDuration,
+            remarks
+          }).catch(e => console.warn(e));
+        }
+      }
+
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

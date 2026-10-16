@@ -659,5 +659,58 @@ export const api = {
       console.error("Failed to save admin work data", e);
       return { success: false, error: e.message };
     }
+  },
+
+  async logDmsTaskCompletion({ employeeName, taskType, studentName, durationMinutes, remarks }) {
+    if (!employeeName) return;
+    try {
+      const now = new Date();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const monthKey = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      
+      const dayIndex = now.getDay(); // 0 is Sunday, 1 is Monday ... 5 is Friday
+      const dayNames = ['Monday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Friday'];
+      const dayName = dayNames[dayIndex] || 'Monday';
+
+      // Determine week of month (1 to 4)
+      const dayOfMonth = now.getDate();
+      const weekNum = Math.min(4, Math.max(1, Math.ceil(dayOfMonth / 7)));
+      const cellKey = `W${weekNum}_${dayName}`;
+
+      const allData = await this.getAdminWorkData();
+      const monthLogs = allData[`WORK_LOGS_${monthKey}`] || {};
+      const empLogs = monthLogs[employeeName] || {};
+      const dayLog = empLogs[cellKey] || { cv: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] };
+
+      // Increment count according to taskType ('cv', 'qa', 'sub', 'ps')
+      if (taskType === 'cv') dayLog.cv = (Number(dayLog.cv) || 0) + 1;
+      else if (taskType === 'qa') dayLog.qa = (Number(dayLog.qa) || 0) + 1;
+      else if (taskType === 'sub') dayLog.sub = (Number(dayLog.sub) || 0) + 1;
+      else if (taskType === 'ps') {
+        // PS logged under misc with benchmark time
+        const psTime = durationMinutes || 20;
+        dayLog.miscM = (Number(dayLog.miscM) || 0) + psTime;
+        const entry = `PS review: ${studentName || ''}`;
+        dayLog.misc = dayLog.misc ? `${dayLog.misc}; ${entry}` : entry;
+      }
+
+      // If custom duration was given or remarks specified
+      if (remarks || (durationMinutes && durationMinutes !== (taskType === 'sub' ? 30 : 20))) {
+        if (!dayLog.remarksList) dayLog.remarksList = [];
+        const remarkText = remarks || `${taskType.toUpperCase()} completed for ${studentName || 'Student'} took ${durationMinutes}m`;
+        dayLog.remarksList.push(remarkText);
+      }
+
+      empLogs[cellKey] = dayLog;
+      monthLogs[employeeName] = empLogs;
+
+      await this.saveAdminWorkData(`WORK_LOGS_${monthKey}`, monthLogs);
+      // Also broadcast real-time event
+      realtimeTracker.emit('admin_work_updated', { monthKey, employeeName, cellKey });
+      return { success: true };
+    } catch (e) {
+      console.warn("Failed to log task into admin work tracker", e);
+      return { success: false };
+    }
   }
 };

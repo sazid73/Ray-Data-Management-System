@@ -9,129 +9,122 @@ const BENCHMARKS = {
   dailyShiftMinutes: 360 // 6.0 Hours
 };
 
-const DEFAULT_EMPLOYEES = [
-  { name: 'Fatima Khan', role: 'Senior Admissions Admin' },
-  { name: 'Tanvir Hasan', role: 'Documentation Specialist' },
-  { name: 'Rahim Ahmed', role: 'University Submissions Officer' },
-  { name: 'Ayesha Siddiqua', role: 'Admissions Executive' },
-  { name: 'Nazia Sultana', role: 'Admissions Associate' }
-];
-
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const WEEKS = [1, 2, 3, 4];
 
-// Pre-seeded authentic initial demo logs matching the Excel workbook
-const DEFAULT_INITIAL_DATA = {
-  'Fatima Khan': {
-    'W1_Monday': { cv: 3, qa: 4, sub: 6, misc: 'University of Manchester UCAS applications', miscM: 40 },
-    'W1_Tuesday': { cv: 2, qa: 5, sub: 6, misc: 'SOP review and Warwick university follow-up', miscM: 40 },
-    'W1_Wednesday': { cv: 4, qa: 4, sub: 5, misc: 'Transcript verification and agent inquiries', miscM: 50 },
-    'W1_Thursday': { cv: 3, qa: 4, sub: 6, misc: 'Direct university portal filings', miscM: 30 },
-    'W1_Friday': { cv: 2, qa: 5, sub: 6, misc: 'Weekly offer checking and student calls', miscM: 40 },
-
-    'W2_Monday': { cv: 3, qa: 5, sub: 5, misc: 'Bristol and Leeds submissions', miscM: 50 },
-    'W2_Tuesday': { cv: 4, qa: 4, sub: 5, misc: 'Edinburgh and Glasgow documentation QA', miscM: 50 },
-    'W2_Wednesday': { cv: 2, qa: 5, sub: 6, misc: 'Kings College London portal applications', miscM: 40 },
-    'W2_Thursday': { cv: 3, qa: 4, sub: 6, misc: 'Queen Mary submissions and document scans', miscM: 40 },
-    'W2_Friday': { cv: 3, qa: 3, sub: 6, misc: 'Friday QC audit on issued offers', miscM: 60 },
-
-    'W3_Monday': { cv: 4, qa: 3, sub: 6, misc: 'Birmingham city university review', miscM: 40 },
-    'W3_Tuesday': { cv: 3, qa: 5, sub: 5, misc: 'Nottingham follow-up and student emails', miscM: 50 },
-    'W3_Wednesday': { cv: 2, qa: 4, sub: 6, misc: 'Brunel application submissions', miscM: 60 },
-    'W3_Thursday': { cv: 4, qa: 4, sub: 5, misc: 'Southampton portal processing', miscM: 40 },
-    'W3_Friday': { cv: 3, qa: 4, sub: 6, misc: 'Weekly audit and offer approvals', miscM: 40 },
-
-    'W4_Monday': { cv: 3, qa: 4, sub: 6, misc: 'UCAS portal submissions', miscM: 40 },
-    'W4_Tuesday': { cv: 4, qa: 3, sub: 6, misc: 'Document scans and compliance checks', miscM: 40 },
-    'W4_Wednesday': { cv: 3, qa: 5, sub: 5, misc: 'Offer letters verification', miscM: 50 },
-    'W4_Thursday': { cv: 2, qa: 5, sub: 6, misc: 'Agent documentation follow up', miscM: 40 },
-    'W4_Friday': { cv: 3, qa: 4, sub: 6, misc: 'Monthly closing QA report', miscM: 40 },
-  },
-  'Tanvir Hasan': {
-    'W1_Monday': { cv: 3, qa: 4, sub: 5, misc: 'Direct applications to Ulster and Coventry', miscM: 50 },
-    'W1_Tuesday': { cv: 4, qa: 3, sub: 5, misc: 'Middlesex university documentation checks', miscM: 50 },
-    'W1_Wednesday': { cv: 2, qa: 5, sub: 5, misc: 'Hertfordshire submissions and CAS follow up', miscM: 50 },
-    'W1_Thursday': { cv: 3, qa: 4, sub: 5, misc: 'London Met admissions portal', miscM: 50 },
-    'W1_Friday': { cv: 4, qa: 3, sub: 5, misc: 'De Montfort applicant verification', miscM: 50 },
-  },
-  'Rahim Ahmed': {
-    'W1_Monday': { cv: 3, qa: 4, sub: 5, misc: 'Northumbria document upload and verification', miscM: 50 },
-    'W1_Tuesday': { cv: 3, qa: 4, sub: 5, misc: 'Bedfordshire UCAS clearance review', miscM: 50 },
-    'W1_Wednesday': { cv: 4, qa: 3, sub: 5, misc: 'Greenwich university application filings', miscM: 50 },
-    'W1_Thursday': { cv: 2, qa: 5, sub: 5, misc: 'Canterbury Christ Church submissions', miscM: 50 },
-    'W1_Friday': { cv: 3, qa: 4, sub: 5, misc: 'Anglia Ruskin portal follow-up', miscM: 50 },
-  },
-  'Ayesha Siddiqua': {
-    'W1_Monday': { cv: 3, qa: 3, sub: 5, misc: 'West London university checks', miscM: 50 },
-    'W1_Tuesday': { cv: 2, qa: 3, sub: 4, misc: 'East London portal documentation', miscM: 40 },
-    'W1_Wednesday': { cv: 3, qa: 4, sub: 5, misc: 'Roehampton documentation follow-up', miscM: 50 },
-    'W1_Thursday': { cv: 3, qa: 3, sub: 5, misc: 'BPP documentation compliance review', miscM: 60 },
-    'W1_Friday': { cv: 2, qa: 4, sub: 4, misc: 'Weekly summary and offer audits', miscM: 40 },
-  },
-  'Nazia Sultana': {
-    'W1_Monday': { cv: 2, qa: 3, sub: 4, misc: 'Applicant filing and data entry checks', miscM: 40 },
-    'W1_Tuesday': { cv: 2, qa: 3, sub: 4, misc: 'Document scans and email responses', miscM: 40 },
-    'W1_Wednesday': { cv: 2, qa: 3, sub: 4, misc: 'Passport and transcript validation', miscM: 50 },
-    'W1_Thursday': { cv: 2, qa: 3, sub: 4, misc: 'Portal checks and document filing', miscM: 40 },
-    'W1_Friday': { cv: 2, qa: 2, sub: 4, misc: 'Weekly reports compilation', miscM: 40 },
+// Generate list of available months (last 6 months to next 6 months)
+const generateMonthsList = () => {
+  const list = [];
+  const now = new Date();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  
+  for (let i = -6; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+    list.push(key);
   }
+  return list;
 };
 
+const AVAILABLE_MONTHS = generateMonthsList();
+
 const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
+  const currentMonthName = useMemo(() => {
+    const now = new Date();
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  }, []);
+
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthName);
   const [activeTab, setActiveTab] = useState('ranking'); // 'ranking' | employeeName
-  const [employees, setEmployees] = useState(DEFAULT_EMPLOYEES);
-  const [workData, setWorkData] = useState(DEFAULT_INITIAL_DATA);
+  const [employees, setEmployees] = useState([]);
+  const [workData, setWorkData] = useState({});
   const [saveStatus, setSaveStatus] = useState('Saved to Cloud');
-  const [selectedMonth, setSelectedMonth] = useState('May 2026');
   const [filterQuery, setFilterQuery] = useState('');
 
   const saveTimeoutRef = useRef(null);
 
-  // 1. Fetch live data from Supabase on mount
+  // Check if current user has super_admin permission
+  const isSuperAdmin = useMemo(() => {
+    return currentUserRole === 'super_admin' || 
+           currentUserRole === 'admin' || 
+           (currentUserData?.abilities && currentUserData.abilities.includes('super_admin'));
+  }, [currentUserRole, currentUserData]);
+
+  // 1. Fetch real Admin Officers from Supabase Users
   useEffect(() => {
-    const loadData = async () => {
+    const loadOfficers = async () => {
       try {
-        const stored = await api.getAdminWorkData();
-        if (stored && Object.keys(stored).length > 0) {
-          // If we have custom employees list or logs
-          if (stored['EMPLOYEES_LIST']) {
-            setEmployees(stored['EMPLOYEES_LIST']);
-          }
-          if (stored['WORK_LOGS']) {
-            setWorkData(prev => ({ ...prev, ...stored['WORK_LOGS'] }));
-          }
+        const users = await api.getUsers();
+        // Filter users who have 'Admin Officer' in jobTitles or are admin task assigners
+        const adminOfficers = users.filter(u => {
+          const titles = u.jobTitles || [];
+          return titles.includes('Admin Officer') || 
+                 u.role === 'admins for task assigns' || 
+                 u.role === 'super_admin';
+        }).map(u => ({
+          name: u.name,
+          role: (u.jobTitles && u.jobTitles[0]) || (u.role === 'super_admin' ? 'Super Admin' : 'Admin Officer')
+        }));
+
+        if (adminOfficers.length > 0) {
+          setEmployees(adminOfficers);
+        } else {
+          // Fallback if no specific role set
+          setEmployees(users.slice(0, 10).map(u => ({ name: u.name, role: u.role || 'Admin Officer' })));
         }
       } catch (err) {
-        console.warn('Using default admin work dataset', err);
+        console.error('Failed to load users for Admin Work', err);
       }
     };
-    loadData();
+    loadOfficers();
   }, []);
 
-  // 2. Debounced save to Supabase
-  const persistWorkData = (newWorkData, newEmployees = null) => {
+  // 2. Fetch Work Logs for the selected month
+  const fetchMonthLogs = async (monthKey) => {
+    try {
+      const stored = await api.getAdminWorkData();
+      const monthData = stored[`WORK_LOGS_${monthKey}`] || {};
+      setWorkData(monthData);
+    } catch (err) {
+      console.warn('Failed to load month work logs', err);
+      setWorkData({});
+    }
+  };
+
+  useEffect(() => {
+    fetchMonthLogs(selectedMonth);
+  }, [selectedMonth]);
+
+  // 3. Debounced save to Supabase
+  const persistWorkData = (newWorkData, monthKey = selectedMonth) => {
     setSaveStatus('Saving...');
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        await api.saveAdminWorkData('WORK_LOGS', newWorkData);
-        if (newEmployees) {
-          await api.saveAdminWorkData('EMPLOYEES_LIST', newEmployees);
-        }
+        await api.saveAdminWorkData(`WORK_LOGS_${monthKey}`, newWorkData);
         setSaveStatus('All Changes Saved');
       } catch (err) {
         console.error('Failed to sync admin work data:', err);
         setSaveStatus('Save Failed');
       }
-    }, 1000);
+    }, 800);
+  };
+
+  // Determine if active user can edit this employee's row
+  const canEditEmployee = (empName) => {
+    if (isSuperAdmin) return true;
+    return currentUser && currentUser.toLowerCase() === empName.toLowerCase();
   };
 
   const handleCellChange = (empName, week, day, field, value) => {
+    if (!canEditEmployee(empName)) return;
+
     const key = `W${week}_${day}`;
     setWorkData(prev => {
       const empData = { ...(prev[empName] || {}) };
-      const dayData = { ...(empData[key] || { cv: 0, qa: 0, sub: 0, misc: '', miscM: 0 }) };
+      const dayData = { ...(empData[key] || { cv: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] }) };
 
       if (field === 'misc') {
         dayData[field] = value;
@@ -141,7 +134,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
 
       empData[key] = dayData;
       const next = { ...prev, [empName]: empData };
-      persistWorkData(next);
+      persistWorkData(next, selectedMonth);
       return next;
     });
   };
@@ -163,7 +156,8 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
       totalMinutes,
       totalHours,
       dailyPct,
-      isTargetMet
+      isTargetMet,
+      remarksList: dayLog.remarksList || []
     };
   };
 
@@ -200,7 +194,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     };
   };
 
-  // Helper to compute monthly totals and ranking for all employees
+  // Monthly rankings for the selected month
   const employeeRankings = useMemo(() => {
     const list = employees.map(emp => {
       let monthTotalMins = 0;
@@ -212,7 +206,6 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
         weekAverages.push(wSum.avgPct);
       });
 
-      // Excel formula: G4 = AVERAGE(C4:F4)
       const monthlyAvgPct = weekAverages.length > 0 ? (weekAverages.reduce((a, b) => a + b, 0) / weekAverages.length) : 0;
       const monthlyTotalHours = monthTotalMins / 60;
       const isTargetMet = monthlyAvgPct >= 1.0;
@@ -226,7 +219,6 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
       };
     });
 
-    // Sort descending by monthlyAvgPct
     list.sort((a, b) => b.monthlyAvgPct - a.monthlyAvgPct);
 
     return list.map((emp, index) => ({
@@ -246,40 +238,27 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     };
   }, [employeeRankings]);
 
-  // Filtered employees in ranking view
   const filteredRankings = useMemo(() => {
     if (!filterQuery.trim()) return employeeRankings;
     const q = filterQuery.toLowerCase();
-    return employeeRankings.filter(e => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q));
+    return employeeRankings.filter(e => e.name.toLowerCase().includes(q) || (e.role && e.role.toLowerCase().includes(q)));
   }, [employeeRankings, filterQuery]);
-
-  // Handle adding an employee
-  const handleAddEmployee = () => {
-    const name = window.prompt("Enter new employee's full name:");
-    if (!name || !name.trim()) return;
-    const cleanName = name.trim();
-    if (employees.some(e => e.name.toLowerCase() === cleanName.toLowerCase())) {
-      alert("Employee already exists!");
-      return;
-    }
-    const role = window.prompt("Enter employee role / title:", "Admissions Officer") || "Admissions Officer";
-    const nextList = [...employees, { name: cleanName, role }];
-    setEmployees(nextList);
-    persistWorkData(workData, nextList);
-    setActiveTab(cleanName);
-  };
 
   // Render Employee Specific Sheet
   const renderEmployeeSheet = (empName) => {
-    const emp = employees.find(e => e.name === empName) || { name: empName, role: 'Admissions Admin' };
+    const emp = employees.find(e => e.name === empName) || { name: empName, role: 'Admin Officer' };
     const empRanking = employeeRankings.find(e => e.name === empName) || { monthlyAvgPct: 0, monthlyTotalHours: 0, isTargetMet: false };
+    const editable = canEditEmployee(empName);
 
     return (
       <div className="employee-sheet-view">
         <div className="emp-meta-banner">
           <div className="emp-meta-left">
             <h2>{emp.name}</h2>
-            <span>Role: <strong>{emp.role}</strong> | Standard Daily Shift: 6.0 Hours (360 Mins)</span>
+            <span>
+              Role: <strong>{emp.role}</strong> | Month: <strong>{selectedMonth}</strong> | Standard Daily Shift: 6.0 Hours (360 Mins)
+              {!editable && <span style={{ marginLeft: '1rem', color: '#f59e0b', fontWeight: 600 }}>(Read-Only Mode)</span>}
+            </span>
           </div>
           <div className="emp-meta-stats">
             <div className="emp-meta-stat-item">
@@ -308,26 +287,26 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
           return (
             <div key={week} className="admin-table-card">
               <div className="admin-table-card-header">
-                <h3>WEEK {week} - Daily Work Logs & Completion Rate</h3>
+                <h3>WEEK {week} - Daily Work Logs & Completion Rate ({selectedMonth})</h3>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  Standard: 1,800 Mins (30.0 Hours)
+                  Shift Target: 1,800 Mins (30.0 Hours)
                 </span>
               </div>
               <div className="admin-table-wrapper">
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '120px' }}>Day</th>
-                      <th style={{ width: '100px' }}>CV (20 mins)</th>
-                      <th style={{ width: '100px' }}>QA (20 mins)</th>
-                      <th style={{ width: '110px' }}>Sub & QC (30m)</th>
+                      <th style={{ width: '100px' }}>Day</th>
+                      <th style={{ width: '90px' }}>CV (20m)</th>
+                      <th style={{ width: '90px' }}>QA (20m)</th>
+                      <th style={{ width: '100px' }}>Sub & QC (30m)</th>
                       <th>Miscellaneous Tasks Done</th>
-                      <th style={{ width: '120px' }}>Misc Time (Mins)</th>
-                      <th style={{ width: '120px' }}>Total Time</th>
-                      <th style={{ width: '100px' }}>Total Hours</th>
-                      <th style={{ width: '90px' }}>Shift</th>
-                      <th style={{ width: '90px' }}>Daily %</th>
-                      <th style={{ width: '120px' }}>Status</th>
+                      <th style={{ width: '110px' }}>Misc Time (Mins)</th>
+                      <th style={{ width: '110px' }}>Total Time</th>
+                      <th style={{ width: '90px' }}>Total Hours</th>
+                      <th style={{ width: '85px' }}>Shift</th>
+                      <th style={{ width: '85px' }}>Daily %</th>
+                      <th style={{ width: '140px' }}>Status & Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -343,6 +322,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             <input
                               type="number"
                               min="0"
+                              disabled={!editable}
                               className="table-input table-input-num"
                               value={dayLog.cv !== undefined ? dayLog.cv : 0}
                               onChange={e => handleCellChange(emp.name, week, day, 'cv', e.target.value)}
@@ -352,6 +332,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             <input
                               type="number"
                               min="0"
+                              disabled={!editable}
                               className="table-input table-input-num"
                               value={dayLog.qa !== undefined ? dayLog.qa : 0}
                               onChange={e => handleCellChange(emp.name, week, day, 'qa', e.target.value)}
@@ -361,16 +342,18 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             <input
                               type="number"
                               min="0"
+                              disabled={!editable}
                               className="table-input table-input-num"
                               value={dayLog.sub !== undefined ? dayLog.sub : 0}
                               onChange={e => handleCellChange(emp.name, week, day, 'sub', e.target.value)}
                             />
                           </td>
                           <td>
-                            <input
-                              type="text"
-                              className="table-input"
-                              placeholder="e.g. Manchester UCAS filing..."
+                            <textarea
+                              rows={2}
+                              disabled={!editable}
+                              className="table-textarea-misc"
+                              placeholder="Miscellaneous tasks and notes..."
                               value={dayLog.misc || ''}
                               onChange={e => handleCellChange(emp.name, week, day, 'misc', e.target.value)}
                             />
@@ -379,6 +362,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             <input
                               type="number"
                               min="0"
+                              disabled={!editable}
                               className="table-input table-input-num"
                               value={dayLog.miscM !== undefined ? dayLog.miscM : 0}
                               onChange={e => handleCellChange(emp.name, week, day, 'miscM', e.target.value)}
@@ -391,9 +375,20 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             {(metrics.dailyPct * 100).toFixed(0)}%
                           </td>
                           <td>
-                            <span className={`status-badge ${metrics.isTargetMet ? 'status-met' : 'status-below'}`}>
-                              {metrics.isTargetMet ? 'Target Met' : 'Below Target'}
-                            </span>
+                            <div>
+                              <span className={`status-badge ${metrics.isTargetMet ? 'status-met' : 'status-below'}`}>
+                                {metrics.isTargetMet ? 'Target Met' : 'Below Target'}
+                              </span>
+                            </div>
+                            {metrics.remarksList && metrics.remarksList.length > 0 && (
+                              <div style={{ marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                {metrics.remarksList.map((rem, rIdx) => (
+                                  <span key={rIdx} className="remarks-pill remarks-pill-warn" title={rem}>
+                                    ⚠️ {rem}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
@@ -439,6 +434,16 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
         </div>
 
         <div className="admin-work-controls">
+          {/* Month Filter */}
+          <div className="month-selector">
+            <span style={{ fontSize: '1rem' }}>📅</span>
+            <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+              {AVAILABLE_MONTHS.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="benchmark-badge">
             ⚡ Benchmarks: <strong>CV = 20m</strong> | <strong>QA = 20m</strong> | <strong>Sub & QC = 30m</strong>
           </div>
@@ -446,14 +451,6 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
           <div className="save-indicator">
             <span style={{ fontSize: '1rem' }}>☁️</span> {saveStatus}
           </div>
-
-          <button 
-            className="btn-secondary" 
-            onClick={handleAddEmployee}
-            style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem' }}
-          >
-            + Add Employee
-          </button>
         </div>
       </div>
 
@@ -526,7 +523,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
           {/* Master Ranking Table */}
           <div className="admin-table-card">
             <div className="admin-table-card-header">
-              <h3>Admin Department Performance Ranking</h3>
+              <h3>Admin Department Performance Ranking — {selectedMonth}</h3>
               <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
                 <input
                   type="text"
