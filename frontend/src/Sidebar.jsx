@@ -15,6 +15,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, setSidebarOpen }) => {
       { id: 'course_campus', label: 'Course and Campus', icon: '🏛️' }
     ]},
     { section: 'MANAGEMENT', items: [
+      { id: 'admin_work', label: 'Admin Work', icon: '💼' },
       { id: 'weekly_wl', label: 'Weekly WL', icon: '📝' },
       { id: 'settings', label: 'System Settings', icon: '⚙️' }
     ]}

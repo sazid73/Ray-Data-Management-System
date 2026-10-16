@@ -619,5 +619,45 @@ export const api = {
       body: JSON.stringify(payload)
     });
     return { success: true };
+  },
+
+  // === ADMIN WORK TRACKER ===
+  async getAdminWorkData() {
+    try {
+      const res = await req('/grid_cells?key=like.ADMIN_WORK_%25&select=*');
+      const rows = await res.json();
+      const records = {};
+      rows.forEach(r => {
+        // key format: ADMIN_WORK_DATA_Fatima Khan or ADMIN_WORK_MONTH_2026-05
+        const id = r.key.replace(/^ADMIN_WORK_/, '');
+        records[id] = r.slots && r.slots[0] && r.slots[0].text ? JSON.parse(r.slots[0].text) : (r.slots || []);
+      });
+      return records;
+    } catch (e) {
+      console.warn("Failed to get admin work data", e);
+      return {};
+    }
+  },
+
+  async saveAdminWorkData(id, data) {
+    try {
+      const key = `ADMIN_WORK_${id}`;
+      const payload = {
+        key,
+        color: 'ADMIN_WORK',
+        text_color: 'ACTIVE',
+        slots: [{ text: JSON.stringify(data), status: 'ok', employeeDoneBy: 'Admin' }],
+        updated_at: new Date().toISOString()
+      };
+      await req('/grid_cells', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(payload)
+      });
+      return { success: true };
+    } catch (e) {
+      console.error("Failed to save admin work data", e);
+      return { success: false, error: e.message };
+    }
   }
 };
