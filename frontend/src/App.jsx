@@ -1,7 +1,7 @@
 import SearchableSelect from './SearchableSelect';
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { io } from 'socket.io-client';
+import { createTrackerSocket } from './supabaseClient';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import StudentsDMS from './StudentsDMS';
@@ -140,7 +140,7 @@ const LoginScreen = ({ onLogin }) => {
         }
       } catch (err) {
         console.error("Login API failed", err);
-        setError('Network error. Backend might be down.');
+        setError(err.message || 'Network error. Backend might be down.');
       }
     }
   };
@@ -328,10 +328,9 @@ function App() {
     }
   }, [historyModalData]);
 
-  // Connect WebSocket for Real-Time Live Sync
+  // Connect Supabase Realtime for Live Sync
   useEffect(() => {
-    const socketUrl = API_BASE || (import.meta.env.PROD ? undefined : 'http://localhost:5000');
-    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    const socket = createTrackerSocket();
     window.appSocket = socket;
 
     socket.on('cell_updated', (data) => {
