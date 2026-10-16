@@ -4,6 +4,7 @@ import './AdminWork.css';
 
 const BENCHMARKS = {
   cv: 20,    // 20 mins per CV
+  ps: 20,    // 20 mins per PS
   qa: 20,    // 20 mins per QA
   sub: 30,   // 30 mins per Sub & QC
   dailyShiftMinutes: 360 // 6.0 Hours
@@ -24,6 +25,51 @@ const generateMonthsList = () => {
     list.push(key);
   }
   return list;
+};
+
+// Helper to calculate exact calendar date for a given week (1-4) and day of week
+const getDateForDay = (monthKey, week, day) => {
+  if (!monthKey) return '';
+  try {
+    const parts = monthKey.split(' ');
+    if (parts.length !== 2) return '';
+    const mStr = parts[0];
+    const yStr = parts[1];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const mIndex = monthNames.indexOf(mStr);
+    const year = parseInt(yStr, 10);
+    if (mIndex === -1 || isNaN(year)) return '';
+
+    const dayMap = { 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5 };
+    const targetDayIndex = dayMap[day];
+    if (!targetDayIndex) return '';
+
+    // Find the 1st day of the month
+    const firstDay = new Date(year, mIndex, 1);
+    // Find the first Monday on or after the 1st
+    // JavaScript day: 0=Sun, 1=Mon, ..., 6=Sat
+    let firstMondayDate = 1;
+    const firstDayOfWeek = firstDay.getDay(); // 0-6
+    if (firstDayOfWeek === 1) {
+      firstMondayDate = 1;
+    } else if (firstDayOfWeek === 0) {
+      firstMondayDate = 2; // Next day is Monday
+    } else {
+      firstMondayDate = 1 + (8 - firstDayOfWeek); // Distance to next Monday
+    }
+
+    // Week 1 starts at firstMondayDate, Week 2 is +7, Week 3 is +14, Week 4 is +21
+    const weekOffset = (week - 1) * 7;
+    const dayOffset = targetDayIndex - 1; // 0 for Mon, 1 for Tue, etc.
+    const calculatedDayNumber = firstMondayDate + weekOffset + dayOffset;
+
+    const calcDate = new Date(year, mIndex, calculatedDayNumber);
+    const dayNumFormatted = String(calcDate.getDate()).padStart(2, '0');
+    const calcMonthStr = monthNames[calcDate.getMonth()];
+    return `${dayNumFormatted} ${calcMonthStr}`;
+  } catch (e) {
+    return '';
+  }
 };
 
 const AVAILABLE_MONTHS = generateMonthsList();
@@ -117,7 +163,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
     const key = `W${week}_${day}`;
     setWorkData(prev => {
       const empData = { ...(prev[empName] || {}) };
-      const dayData = { ...(empData[key] || { cv: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] }) };
+      const dayData = { ...(empData[key] || { cv: 0, ps: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] }) };
 
       if (field === 'misc') {
         dayData[field] = value;
@@ -135,17 +181,18 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
   // Helper to compute metrics for a single day
   const calculateDayMetrics = (dayLog = {}) => {
     const cv = Number(dayLog.cv) || 0;
+    const ps = Number(dayLog.ps) || 0;
     const qa = Number(dayLog.qa) || 0;
     const sub = Number(dayLog.sub) || 0;
     const miscM = Number(dayLog.miscM) || 0;
 
-    const totalMinutes = (cv * BENCHMARKS.cv) + (qa * BENCHMARKS.qa) + (sub * BENCHMARKS.sub) + miscM;
+    const totalMinutes = (cv * BENCHMARKS.cv) + (ps * BENCHMARKS.ps) + (qa * BENCHMARKS.qa) + (sub * BENCHMARKS.sub) + miscM;
     const totalHours = totalMinutes / 60;
     const dailyPct = BENCHMARKS.dailyShiftMinutes > 0 ? (totalMinutes / BENCHMARKS.dailyShiftMinutes) : 0;
     const isTargetMet = dailyPct >= 1.0;
 
     return {
-      cv, qa, sub, miscM,
+      cv, ps, qa, sub, miscM,
       totalMinutes,
       totalHours,
       dailyPct,
@@ -157,13 +204,14 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
   // Helper to compute weekly stats for an employee
   const calculateWeekSummary = (empName, week) => {
     const empData = workData[empName] || {};
-    let totalCV = 0, totalQA = 0, totalSub = 0, totalMiscM = 0;
+    let totalCV = 0, totalPS = 0, totalQA = 0, totalSub = 0, totalMiscM = 0;
     let totalMinutes = 0;
     let daysLogged = 0;
 
     DAYS.forEach(day => {
       const metrics = calculateDayMetrics(empData[`W${week}_${day}`]);
       totalCV += metrics.cv;
+      totalPS += metrics.ps;
       totalQA += metrics.qa;
       totalSub += metrics.sub;
       totalMiscM += metrics.miscM;
@@ -177,6 +225,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
 
     return {
       totalCV,
+      totalPS,
       totalQA,
       totalSub,
       totalMiscM,
@@ -289,16 +338,17 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '100px' }}>Day</th>
-                      <th style={{ width: '90px' }}>CV (20m)</th>
-                      <th style={{ width: '90px' }}>QA (20m)</th>
-                      <th style={{ width: '100px' }}>Sub & QC (30m)</th>
-                      <th>Miscellaneous Tasks Done</th>
-                      <th style={{ width: '110px' }}>Misc Time (Mins)</th>
-                      <th style={{ width: '110px' }}>Total Time</th>
-                      <th style={{ width: '90px' }}>Total Hours</th>
-                      <th style={{ width: '85px' }}>Shift</th>
-                      <th style={{ width: '85px' }}>Daily %</th>
+                      <th style={{ width: '95px' }}>Day</th>
+                      <th style={{ width: '80px' }}>CV (20m)</th>
+                      <th style={{ width: '80px' }}>PS (20m)</th>
+                      <th style={{ width: '80px' }}>QA (20m)</th>
+                      <th style={{ width: '95px' }}>Sub & QC (30m)</th>
+                      <th>Extra Work (Shift Tasks/Meetings)</th>
+                      <th style={{ width: '100px' }}>Extra (Mins)</th>
+                      <th style={{ width: '105px' }}>Total Time</th>
+                      <th style={{ width: '85px' }}>Total Hours</th>
+                      <th style={{ width: '80px' }}>Shift</th>
+                      <th style={{ width: '80px' }}>Daily %</th>
                       <th style={{ width: '140px' }}>Status & Remarks</th>
                     </tr>
                   </thead>
@@ -307,10 +357,18 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                       const dayKey = `W${week}_${day}`;
                       const dayLog = (workData[emp.name] && workData[emp.name][dayKey]) || {};
                       const metrics = calculateDayMetrics(dayLog);
+                      const formattedDate = getDateForDay(selectedMonth, week, day);
 
                       return (
                         <tr key={day}>
-                          <td style={{ fontWeight: 600 }}>{day}</td>
+                          <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            <div>{day}</div>
+                            {formattedDate && (
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                                {formattedDate}
+                              </div>
+                            )}
+                          </td>
                           <td>
                             <input
                               type="number"
@@ -319,6 +377,16 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                               className="table-input table-input-num"
                               value={dayLog.cv !== undefined ? dayLog.cv : 0}
                               onChange={e => handleCellChange(emp.name, week, day, 'cv', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              min="0"
+                              disabled={!editable}
+                              className="table-input table-input-num"
+                              value={dayLog.ps !== undefined ? dayLog.ps : 0}
+                              onChange={e => handleCellChange(emp.name, week, day, 'ps', e.target.value)}
                             />
                           </td>
                           <td>
@@ -346,7 +414,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                               rows={2}
                               disabled={!editable}
                               className="table-textarea-misc"
-                              placeholder="Miscellaneous tasks and notes..."
+                              placeholder="Extra works & times during shift (meetings, training, etc.)..."
                               value={dayLog.misc || ''}
                               onChange={e => handleCellChange(emp.name, week, day, 'misc', e.target.value)}
                             />
@@ -375,11 +443,20 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                             </div>
                             {metrics.remarksList && metrics.remarksList.length > 0 && (
                               <div style={{ marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                                {metrics.remarksList.map((rem, rIdx) => (
-                                  <span key={rIdx} className="remarks-pill remarks-pill-warn" title={rem}>
-                                    ⚠️ {rem}
-                                  </span>
-                                ))}
+                                {metrics.remarksList.map((rem, rIdx) => {
+                                  const text = typeof rem === 'object' ? rem.text : rem;
+                                  const type = typeof rem === 'object' ? rem.type : (text.toLowerCase().includes('over benchmark') || (text.toLowerCase().includes('took') && !text.toLowerCase().includes('within benchmark')) ? 'warn' : 'good');
+                                  const isWarn = type === 'warn';
+                                  return (
+                                    <span 
+                                      key={rIdx} 
+                                      className={`remarks-pill ${isWarn ? 'remarks-pill-warn' : 'remarks-pill-good'}`} 
+                                      title={text}
+                                    >
+                                      {isWarn ? '⚠️' : '✅'} {text}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             )}
                           </td>
@@ -391,6 +468,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
                     <tr className="week-summary-row">
                       <td colSpan="1">Week {week} Summary</td>
                       <td>{weekSummary.totalCV} CVs</td>
+                      <td>{weekSummary.totalPS} PSs</td>
                       <td>{weekSummary.totalQA} QAs</td>
                       <td>{weekSummary.totalSub} Subs</td>
                       <td>Weekly Totals & Average:</td>
@@ -438,7 +516,7 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
           </div>
 
           <div className="benchmark-badge">
-            ⚡ Benchmarks: <strong>CV = 20m</strong> | <strong>QA = 20m</strong> | <strong>Sub & QC = 30m</strong>
+            ⚡ Benchmarks: <strong>CV = 20m</strong> | <strong>QA = 20m</strong> | <strong>Sub & QC = 30m</strong> | <strong>PS = 20m</strong>
           </div>
 
           <div className="save-indicator">

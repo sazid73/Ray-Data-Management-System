@@ -131,15 +131,17 @@ const Dashboard = ({ currentUserRole }) => {
     }
     const currentChasers = student.chasers || { cv: '', ps: '', sub: '', qa: '' };
     const newChasers = { ...currentChasers, [type]: val };
+    const currentAssignedAt = student.chasersAssignedAt || {};
+    const newAssignedAt = { ...currentAssignedAt, [type]: val ? new Date().toISOString() : null };
     
-    setAssignModal({ show: true, student: { ...student, chasers: newChasers, appStatus: newStatus }, initialStatus: assignModal.initialStatus });
-    setStudents(students.map(s => s._id === student._id ? { ...s, chasers: newChasers, appStatus: newStatus } : s));
+    setAssignModal({ show: true, student: { ...student, chasers: newChasers, chasersAssignedAt: newAssignedAt, appStatus: newStatus }, initialStatus: assignModal.initialStatus });
+    setStudents(students.map(s => s._id === student._id ? { ...s, chasers: newChasers, chasersAssignedAt: newAssignedAt, appStatus: newStatus } : s));
     
     try {
       await fetch(`${API_BASE}/api/students/${student._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chasers: newChasers, appStatus: newStatus })
+        body: JSON.stringify({ chasers: newChasers, chasersAssignedAt: newAssignedAt, appStatus: newStatus })
       });
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
@@ -193,25 +195,21 @@ const Dashboard = ({ currentUserRole }) => {
         const assignedOfficer = student.chasers ? student.chasers[type] : null;
         if (assignedOfficer) {
           const defaultMins = type === 'sub' ? 30 : 20;
-          let loggedDuration = defaultMins;
-          let remarks = "";
+          const assignedIso = student.chasersAssignedAt ? student.chasersAssignedAt[type] : null;
+          const assignedTime = assignedIso ? new Date(assignedIso).getTime() : (Date.now() - (defaultMins + 2) * 60 * 1000);
+          const timerStartTime = assignedTime + 2 * 60 * 1000; // Timer starts 2 mins after task assignment
+          const durationMinutes = Math.max(1, Math.round((Date.now() - timerStartTime) / (60 * 1000)));
 
-          const timeInput = window.prompt(`Minutes spent on ${type.toUpperCase()} for ${assignedOfficer} (Benchmark is ${defaultMins}m):`, String(defaultMins));
-          if (timeInput !== null && timeInput.trim()) {
-            const parsed = parseInt(timeInput.trim());
-            if (!isNaN(parsed) && parsed > 0) {
-              loggedDuration = parsed;
-              if (loggedDuration !== defaultMins) {
-                remarks = `${type.toUpperCase()} took ${loggedDuration}m (Benchmark: ${defaultMins}m)`;
-              }
-            }
-          }
+          const isOvertime = durationMinutes > defaultMins;
+          const remarks = isOvertime
+            ? { text: `${type.toUpperCase()} took ${durationMinutes}m (+${durationMinutes - defaultMins}m over benchmark)`, type: 'warn' }
+            : { text: `${type.toUpperCase()} approved in ${durationMinutes}m (Within benchmark)`, type: 'good' };
 
           api.logDmsTaskCompletion({
             employeeName: assignedOfficer,
             taskType: type,
             studentName: student.name,
-            durationMinutes: loggedDuration,
+            durationMinutes,
             remarks
           }).catch(e => console.warn(e));
         }

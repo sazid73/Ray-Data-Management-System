@@ -716,15 +716,17 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
     const student = chaserModal.student;
     const currentChasers = student.chasers || { cv: '', ps: '', sub: '', qa: '' };
     const newChasers = { ...currentChasers, [type]: val };
+    const currentAssignedAt = student.chasersAssignedAt || {};
+    const newAssignedAt = { ...currentAssignedAt, [type]: val ? new Date().toISOString() : null };
     
-    setChaserModal({ show: true, student: { ...student, chasers: newChasers }, readOnly: false });
-    setStudents(students.map(s => s._id === student._id ? { ...s, chasers: newChasers } : s));
+    setChaserModal({ show: true, student: { ...student, chasers: newChasers, chasersAssignedAt: newAssignedAt }, readOnly: false });
+    setStudents(students.map(s => s._id === student._id ? { ...s, chasers: newChasers, chasersAssignedAt: newAssignedAt } : s));
     
     try {
       await fetch(`${API_BASE}/api/students/${student._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chasers: newChasers })
+        body: JSON.stringify({ chasers: newChasers, chasersAssignedAt: newAssignedAt })
       });
       logActivity('Student Edit', `Assigned ${type} chaser to ${val} for ${student.name}`);
     } catch (err) {

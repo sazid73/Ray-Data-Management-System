@@ -184,28 +184,23 @@ const Topbar = ({ currentView, currentUser, currentUserRole, currentUserData, to
         body: JSON.stringify(updatePayload)
       });
       if (res.ok) {
-        // Auto-log to Admin Work Tracker with benchmark duration and remarks if needed
+        // Auto-calculate duration from when task was assigned (+2 min buffer before timer starts)
         const defaultMins = taskType === 'sub' ? 30 : 20;
-        let loggedDuration = defaultMins;
-        let remarks = "";
-        
-        // Check if user wants to log specific duration or remark
-        const timeInput = window.prompt(`Minutes spent on ${taskType.toUpperCase()} (Benchmark is ${defaultMins}m):`, String(defaultMins));
-        if (timeInput !== null && timeInput.trim()) {
-          const parsed = parseInt(timeInput.trim());
-          if (!isNaN(parsed) && parsed > 0) {
-            loggedDuration = parsed;
-            if (loggedDuration !== defaultMins) {
-              remarks = `${taskType.toUpperCase()} took ${loggedDuration}m (Benchmark: ${defaultMins}m)`;
-            }
-          }
-        }
+        const assignedIso = student?.chasersAssignedAt ? student.chasersAssignedAt[taskType] : null;
+        const assignedTime = assignedIso ? new Date(assignedIso).getTime() : (Date.now() - (defaultMins + 2) * 60 * 1000);
+        const timerStartTime = assignedTime + 2 * 60 * 1000;
+        const durationMinutes = Math.max(1, Math.round((Date.now() - timerStartTime) / (60 * 1000)));
+
+        const isOvertime = durationMinutes > defaultMins;
+        const remarks = isOvertime
+          ? { text: `${taskType.toUpperCase()} took ${durationMinutes}m (+${durationMinutes - defaultMins}m over benchmark)`, type: 'warn' }
+          : { text: `${taskType.toUpperCase()} approved in ${durationMinutes}m (Within benchmark)`, type: 'good' };
 
         api.logDmsTaskCompletion({
           employeeName: currentUser,
           taskType,
-          studentName: studentId,
-          durationMinutes: loggedDuration,
+          studentName: student?.name || studentId,
+          durationMinutes,
           remarks
         }).catch(e => console.warn(e));
 

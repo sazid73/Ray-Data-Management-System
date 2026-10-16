@@ -720,25 +720,23 @@ export const api = {
       const allData = await this.getAdminWorkData();
       const monthLogs = allData[`WORK_LOGS_${monthKey}`] || {};
       const empLogs = monthLogs[employeeName] || {};
-      const dayLog = empLogs[cellKey] || { cv: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] };
+      const dayLog = empLogs[cellKey] || { cv: 0, ps: 0, qa: 0, sub: 0, misc: '', miscM: 0, remarksList: [] };
 
       // Increment count according to taskType ('cv', 'qa', 'sub', 'ps')
       if (taskType === 'cv') dayLog.cv = (Number(dayLog.cv) || 0) + 1;
+      else if (taskType === 'ps') dayLog.ps = (Number(dayLog.ps) || 0) + 1;
       else if (taskType === 'qa') dayLog.qa = (Number(dayLog.qa) || 0) + 1;
       else if (taskType === 'sub') dayLog.sub = (Number(dayLog.sub) || 0) + 1;
-      else if (taskType === 'ps') {
-        // PS logged under misc with benchmark time
-        const psTime = durationMinutes || 20;
-        dayLog.miscM = (Number(dayLog.miscM) || 0) + psTime;
-        const entry = `PS review: ${studentName || ''}`;
-        dayLog.misc = dayLog.misc ? `${dayLog.misc}; ${entry}` : entry;
-      }
 
-      // If custom duration was given or remarks specified
-      if (remarks || (durationMinutes && durationMinutes !== (taskType === 'sub' ? 30 : 20))) {
+      // Remarks for task performance
+      if (remarks) {
         if (!dayLog.remarksList) dayLog.remarksList = [];
-        const remarkText = remarks || `${taskType.toUpperCase()} completed for ${studentName || 'Student'} took ${durationMinutes}m`;
-        dayLog.remarksList.push(remarkText);
+        if (typeof remarks === 'object') {
+          dayLog.remarksList.push(remarks);
+        } else {
+          const isWarn = remarks.toLowerCase().includes('over benchmark') || (remarks.toLowerCase().includes('took') && !remarks.toLowerCase().includes('within benchmark'));
+          dayLog.remarksList.push({ text: remarks, type: isWarn ? 'warn' : 'good' });
+        }
       }
 
       empLogs[cellKey] = dayLog;
