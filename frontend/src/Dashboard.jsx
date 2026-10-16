@@ -46,6 +46,7 @@ const Dashboard = ({ currentUserRole }) => {
   const [miInterviews, setMiInterviews] = useState([]);
   const [prepGrid, setPrepGrid] = useState([]);
   const [showPrepModal, setShowPrepModal] = useState(false);
+  const [prepCoachModal, setPrepCoachModal] = useState({ show: false, coach: null });
   
   const [tasks, setTasks] = useState([]);
   const [recruiterTaskFilter, setRecruiterTaskFilter] = useState('All');
@@ -63,7 +64,7 @@ const Dashboard = ({ currentUserRole }) => {
   useEffect(() => {
     setModalSearchTerm('');
     setShowOnlyUrgentSfeSubmitted(false);
-  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal]);
+  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal, prepCoachModal.show]);
 
   useEffect(() => {
     const t = Date.now();
@@ -605,6 +606,56 @@ const Dashboard = ({ currentUserRole }) => {
   const sortedPrepBookers = Object.entries(prepAnalytics.bookedBy).sort((a, b) => b[1].length - a[1].length);
   const sortedPrepDoneBy = Object.entries(prepAnalytics.doneBy).sort((a, b) => b[1].length - a[1].length);
 
+  // Student Prep Sessions Tracking (Weekly calculation by coach & student)
+  const isDateInCurrentWeek = (timestamp) => {
+    if (!timestamp) return false;
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return false;
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const currentDay = now.getDay();
+    const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - distanceToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    return d >= monday && d <= sunday;
+  };
+
+  const weeklyCoachPrepsMap = {};
+  let totalWeeklyCoachPreps = 0;
+  const activePrepStudents = students.filter(s => s.intStatus === 'Prep ongoing' || s.intStatus === 'Prep Done' || (s.prepHistory && s.prepHistory.length > 0));
+
+  students.forEach(student => {
+    if (student.prepHistory && Array.isArray(student.prepHistory)) {
+      student.prepHistory.forEach(prep => {
+        if (isDateInCurrentWeek(prep.timestamp)) {
+          totalWeeklyCoachPreps++;
+          const coachName = prep.doneBy || 'Unassigned Coach';
+          if (!weeklyCoachPrepsMap[coachName]) {
+            weeklyCoachPrepsMap[coachName] = {
+              coach: coachName,
+              count: 0,
+              sessions: []
+            };
+          }
+          weeklyCoachPrepsMap[coachName].count++;
+          weeklyCoachPrepsMap[coachName].sessions.push({
+            ...prep,
+            studentId: student._id,
+            studentName: student.name || 'Unnamed Student',
+            studentPhone: student.phone || '',
+            intStatus: student.intStatus || '',
+            target: student.prepTarget || 10
+          });
+        }
+      });
+    }
+  });
+
+  const sortedCoachPreps = Object.values(weeklyCoachPrepsMap).sort((a, b) => b.count - a.count);
+
   const sfeTotal = colSfeAwaiting.length + colSfeOngoing.length + colSfeUrgent.length + colSfeSubmitted.length + colSfeApproved.length;
   const sfeCompletionRate = sfeTotal > 0 ? Math.round((colSfeApproved.length / sfeTotal) * 100) : 0;
 
@@ -1075,6 +1126,67 @@ const Dashboard = ({ currentUserRole }) => {
                 </>
               );
             })()}
+          </div>
+        </div>
+
+        {/* Prep Box (Weekly Coach Tracking) Widget */}
+        <div style={{ background: 'var(--bg-surface)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+              🎯 Prep Box (This Week)
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Click coach to view notes ➔</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '1rem' }}>
+            <div 
+              onClick={() => setPrepCoachModal({ show: true, coach: null })} 
+              style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #6366f1', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s' }} 
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'} 
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#6366f1' }}>{totalWeeklyCoachPreps}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Preps Done This Week</div>
+            </div>
+            <div 
+              onClick={() => setPrepCoachModal({ show: true, coach: null })} 
+              style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #10b981', textAlign: 'center', cursor: 'pointer', transition: 'transform 0.1s' }} 
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'} 
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>{activePrepStudents.length}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Students in Prep</div>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Coaches Leaderboard (This Week)</div>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '4px' }}>
+              {sortedCoachPreps.length > 0 ? sortedCoachPreps.map(item => (
+                <div 
+                  key={item.coach} 
+                  onClick={() => setPrepCoachModal({ show: true, coach: item.coach })}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.8rem', background: 'var(--bg-color)', borderRadius: '6px', cursor: 'pointer', border: '1px solid var(--border-color)', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-color)'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem' }}>👨‍🏫</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{item.coach}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ background: '#6366f1', color: '#fff', padding: '0.15rem 0.55rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      {item.count} {item.count === 1 ? 'prep' : 'preps'}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>➔</span>
+                  </div>
+                </div>
+              )) : (
+                <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '1rem 0', fontStyle: 'italic' }}>
+                  No preps logged yet this week
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -2586,6 +2698,136 @@ const Dashboard = ({ currentUserRole }) => {
           </div>
         </div>
       );})()}
+      {/* PREP COACH WEEKLY BREAKDOWN MODAL */}
+      {prepCoachModal.show && (() => {
+        const selectedCoach = prepCoachModal.coach;
+        let sessionsToShow = [];
+        if (selectedCoach) {
+          const coachData = weeklyCoachPrepsMap[selectedCoach];
+          sessionsToShow = coachData ? coachData.sessions : [];
+        } else {
+          Object.values(weeklyCoachPrepsMap).forEach(c => {
+            sessionsToShow = sessionsToShow.concat(c.sessions);
+          });
+        }
+
+        if (modalSearchTerm) {
+          const term = modalSearchTerm.toLowerCase();
+          sessionsToShow = sessionsToShow.filter(s => 
+            (s.studentName && s.studentName.toLowerCase().includes(term)) ||
+            (s.doneBy && s.doneBy.toLowerCase().includes(term)) ||
+            (s.notes && s.notes.toLowerCase().includes(term))
+          );
+        }
+
+        return (
+          <div className="dms-modal-overlay" style={{ zIndex: 2000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="dms-modal" style={{ background: 'var(--bg-surface)', maxWidth: '1000px', width: '95%', maxHeight: '90vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', border: '1px solid var(--border-color)' }}>
+              <div className="dms-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    🎯 Prep Tracker (This Week)
+                  </h3>
+                  <select 
+                    value={selectedCoach || 'ALL'} 
+                    onChange={e => setPrepCoachModal({ show: true, coach: e.target.value === 'ALL' ? null : e.target.value })}
+                    style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem' }}
+                  >
+                    <option value="ALL">All Coaches ({totalWeeklyCoachPreps} preps)</option>
+                    {sortedCoachPreps.map(c => (
+                      <option key={c.coach} value={c.coach}>{c.coach} ({c.count} preps)</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    placeholder="Search student or notes..." 
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem', width: '200px' }}
+                  />
+                </div>
+                <button onClick={() => setPrepCoachModal({ show: false, coach: null })} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}>✗</button>
+              </div>
+
+              <div className="dms-modal-body" style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0.8rem 1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Viewing: </span>
+                    <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{selectedCoach ? `Coach: ${selectedCoach}` : 'All Prep Coaches'}</strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <span style={{ background: '#6366f1', color: '#fff', padding: '0.2rem 0.7rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      {sessionsToShow.length} Sessions Logged
+                    </span>
+                  </div>
+                </div>
+
+                {sessionsToShow.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No prep sessions found for this selection this week.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    {sessionsToShow.map((item, idx) => (
+                      <div 
+                        key={item.id || idx} 
+                        style={{ 
+                          background: 'var(--bg-surface-hover)', 
+                          padding: '1rem', 
+                          borderRadius: '8px', 
+                          borderLeft: '4px solid #6366f1', 
+                          border: '1px solid var(--border-color)', 
+                          borderLeftWidth: '4px',
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '0.5rem' 
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                              <span style={{ fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--text-primary)' }}>{item.studentName}</span>
+                              <span style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                Prep #{item.prepNumber}
+                              </span>
+                              {item.intStatus && (
+                                <span style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                  {item.intStatus}
+                                </span>
+                              )}
+                            </div>
+                            {item.studentPhone && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>📞 {item.studentPhone}</div>
+                            )}
+                          </div>
+                          
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#6366f1' }}>
+                              👨‍🏫 Done by: {item.doneBy}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              🕒 {item.dateFormatted || (item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A')}
+                            </div>
+                          </div>
+                        </div>
+
+                        {item.notes ? (
+                          <div style={{ background: 'var(--bg-color)', padding: '0.7rem 0.9rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', borderLeft: '3px solid #10b981' }}>
+                            <strong style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.2rem' }}>SESSION NOTES:</strong>
+                            {item.notes}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No notes provided.</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

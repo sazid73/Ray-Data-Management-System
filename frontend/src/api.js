@@ -254,6 +254,9 @@ export const api = {
       chasers: r.chasers || { cv: '', ps: '', qa: '', sub: '' },
       tasksCompleted: (r.extra_fields && r.extra_fields.tasksCompleted) || {},
       isUrgent: (r.extra_fields && r.extra_fields.isUrgent) || false,
+      prepTarget: (r.extra_fields && r.extra_fields.prepTarget) !== undefined ? r.extra_fields.prepTarget : (r.extra_fields && r.extra_fields.prepHistory ? r.extra_fields.prepHistory.length : 12),
+      prepsDoneCount: (r.extra_fields && r.extra_fields.prepsDoneCount) !== undefined ? r.extra_fields.prepsDoneCount : ((r.extra_fields && r.extra_fields.prepHistory) || []).length,
+      prepHistory: (r.extra_fields && r.extra_fields.prepHistory) || [],
       ...(r.extra_fields || {}),
       // Guarantee standard table columns take precedence over stale extra_fields
       _id: r.id,
@@ -261,6 +264,7 @@ export const api = {
       studentId: r.student_id,
       name: r.name,
       appStatus: r.app_status || 'Awaiting submission',
+      intStatus: r.int_status,
       sfeStatus: r.sfe_status || 'Awaiting Trial SFE Approval',
       chasers: r.chasers || { cv: '', ps: '', qa: '', sub: '' },
       subPendingNotes: r.sub_pending_notes || ''
@@ -375,16 +379,22 @@ export const api = {
     if (fields.chaserHistory !== undefined) payload.chaser_history = fields.chaserHistory;
     if (fields.chasers !== undefined) payload.chasers = fields.chasers;
 
-    // Fetch existing extra_fields to merge tasksCompleted / isUrgent / etc.
-    if (fields.tasksCompleted !== undefined || fields.isUrgent !== undefined) {
+    // Fetch existing extra_fields to merge tasksCompleted / isUrgent / prep tracking fields
+    const extraFieldsToSync = ['tasksCompleted', 'isUrgent', 'chasersAssignedAt', 'prepTarget', 'prepsDoneCount', 'prepHistory'];
+    const hasExtraUpdates = extraFieldsToSync.some(k => fields[k] !== undefined);
+
+    if (hasExtraUpdates) {
       try {
         const curRes = await req(`/student_leads?id=eq.${id}&select=extra_fields`);
         const curData = await curRes.json();
         const existingExtra = (curData[0] && curData[0].extra_fields) || {};
+        const extraUpdates = {};
+        extraFieldsToSync.forEach(k => {
+          if (fields[k] !== undefined) extraUpdates[k] = fields[k];
+        });
         payload.extra_fields = {
           ...existingExtra,
-          ...(fields.tasksCompleted !== undefined ? { tasksCompleted: fields.tasksCompleted } : {}),
-          ...(fields.isUrgent !== undefined ? { isUrgent: fields.isUrgent } : {})
+          ...extraUpdates
         };
       } catch (err) {
         console.warn("Could not merge extra_fields", err);
@@ -406,9 +416,13 @@ export const api = {
         id: upDoc.id,
         studentId: upDoc.student_id,
         appStatus: upDoc.app_status,
+        intStatus: upDoc.int_status,
         chasers: upDoc.chasers,
         subPendingNotes: upDoc.sub_pending_notes,
-        tasksCompleted: (upDoc.extra_fields && upDoc.extra_fields.tasksCompleted) || fields.tasksCompleted || {}
+        tasksCompleted: (upDoc.extra_fields && upDoc.extra_fields.tasksCompleted) || fields.tasksCompleted || {},
+        prepTarget: (upDoc.extra_fields && upDoc.extra_fields.prepTarget) !== undefined ? upDoc.extra_fields.prepTarget : fields.prepTarget,
+        prepsDoneCount: (upDoc.extra_fields && upDoc.extra_fields.prepsDoneCount) !== undefined ? upDoc.extra_fields.prepsDoneCount : fields.prepsDoneCount,
+        prepHistory: (upDoc.extra_fields && upDoc.extra_fields.prepHistory) || fields.prepHistory || []
       }
     };
   },

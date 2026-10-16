@@ -19,6 +19,7 @@ const defaultIntStatuses = [
   "Interested and Responding",
   "Declined",
   "Prep Done",
+  "Prep ongoing",
   "Offer Sent",
   "SFE Not Approved",
   "On Hold - Check Later (AN)",

@@ -20,6 +20,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
   const [toastMsg, setToastMsg] = useState(null);
   const [routeModal, setRouteModal] = useState({ show: false, student: null });
   const [chaserModal, setChaserModal] = useState({ show: false, student: null, readOnly: false });
+  const [prepModal, setPrepModal] = useState({ show: false, student: null, doneBy: '', notes: '', target: 12 });
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({});
   const [activeCollegeTab, setActiveCollegeTab] = useState('All Students');
@@ -45,7 +46,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
     "Assign for submission", "Submission ongoing", "Urgent Submission", "Submitted"
   ]);
   const [intStatuses, setIntStatuses] = useState([
-    "Interested and Responding", "Declined", "Prep Done", "Offer Sent", "SFE Not Approved",
+    "Interested and Responding", "Declined", "Prep Done", "Prep ongoing", "Offer Sent", "SFE Not Approved",
     "On Hold - Check Later (AN)", "SFE Approved - Process Next Steps", "On Holiday (AN)",
     "Awaiting Further Entry Criteria Docs/Info (AN)", "Awaiting Necessary Pretask For Act Int",
     "DNC (AN)", "File Withdrawn (AN)", "File Declined (AN)", "Fully Enrolled 3rd Year",
@@ -150,7 +151,17 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
          
          const colConfig = data['DMS_COLUMNS_CONFIG'];
          if (colConfig && colConfig.slots && colConfig.slots[0] && colConfig.slots[0].text) {
-           setTableColumns(JSON.parse(colConfig.slots[0].text));
+           const loaded = JSON.parse(colConfig.slots[0].text);
+           if (!loaded.some(c => c.id === 'prepProgress')) {
+             const intIdx = loaded.findIndex(c => c.id === 'intStatus');
+             const newCol = { id: 'prepProgress', label: 'PREP', visible: true, order: 14, isSpecial: true, filterable: true, filterType: 'select' };
+             if (intIdx !== -1) {
+               loaded.splice(intIdx + 1, 0, newCol);
+             } else {
+               loaded.push(newCol);
+             }
+           }
+           setTableColumns(loaded);
          }
       })
       .catch(e => console.error(e));
@@ -898,6 +909,21 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
           {student.intStatus || 'Interested'}
         </span>
       );
+      case 'prepProgress': {
+        const done = (student.prepHistory || []).length;
+        const target = student.prepTarget || 12;
+        const isOngoing = (student.intStatus || '').toLowerCase() === 'prep ongoing';
+        const isComplete = done >= target && target > 0;
+        return (
+          <span 
+            className={`prep-badge ${isComplete ? 'prep-badge-done' : isOngoing ? 'prep-badge-ongoing' : 'prep-badge-inactive'}`}
+            onClick={() => setPrepModal({ show: true, student, doneBy: currentUser || '', notes: '', target: student.prepTarget || 12 })}
+            title="Click to view prep sessions, log preps and history"
+          >
+            🎯 {done}/{target} Preps {isComplete ? '✅' : isOngoing ? '⏳' : ''}
+          </span>
+        );
+      }
       case 'sfeStatus': return (
         <span 
           className="int-badge" 
@@ -1739,6 +1765,228 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                 <button type="submit" className="dms-btn-save" style={{ background: '#34d399' }}>Confirm Booking</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Prep Tracking Modal */}
+      {prepModal.show && (
+        <div className="dms-modal-overlay" style={{ zIndex: 2500 }}>
+          <div className="dms-modal" style={{ maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="dms-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  🎯 Student Prep Progress & History
+                </h3>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {prepModal.student.name} ({prepModal.student.studentId})
+                </span>
+              </div>
+              <button onClick={() => setPrepModal({ show: false, student: null, doneBy: '', notes: '', target: 12 })}>✗</button>
+            </div>
+
+            <div className="dms-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', padding: '1.2rem' }}>
+              
+              {/* Overview Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.8rem' }}>
+                <div style={{ background: 'var(--bg-surface-hover)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>INT STATUS</div>
+                  <div style={{ fontWeight: 'bold', marginTop: '0.2rem', color: prepModal.student.intStatus === 'Prep ongoing' ? '#f59e0b' : '#10b981' }}>
+                    {prepModal.student.intStatus || 'Interested'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-surface-hover)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>PREPS COMPLETED</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#3b82f6' }}>
+                    {(prepModal.student.prepHistory || []).length} / {prepModal.target}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-surface-hover)', padding: '0.8rem', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>TARGET REQUIRED</div>
+                  <div style={{ marginTop: '0.2rem' }}>
+                    {(currentUserRole === 'super_admin' || currentUserRole === 'admin' || (currentUserData?.abilities && currentUserData.abilities.includes('super_admin')) || (prepModal.student.prepHistory || []).length === 0) ? (
+                      <select 
+                        value={prepModal.target} 
+                        onChange={e => setPrepModal({ ...prepModal, target: parseInt(e.target.value) })}
+                        style={{ padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-primary)', fontWeight: 'bold' }}
+                      >
+                        {[10, 11, 12, 13, 14, 15].map(n => (
+                          <option key={n} value={n}>{n} Preps</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{prepModal.target} Preps</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                  <span>Completion Rate</span>
+                  <strong>{Math.min(100, Math.round((((prepModal.student.prepHistory || []).length) / Math.max(1, prepModal.target)) * 100))}%</strong>
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'var(--bg-surface-hover)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div 
+                    style={{ 
+                      width: `${Math.min(100, (((prepModal.student.prepHistory || []).length) / Math.max(1, prepModal.target)) * 100)}%`, 
+                      height: '100%', 
+                      background: ((prepModal.student.prepHistory || []).length) >= prepModal.target ? '#10b981' : '#3b82f6' 
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* Log New Prep Session Form */}
+              <div style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', padding: '1rem', borderRadius: '8px' }}>
+                <h4 style={{ margin: '0 0 0.8rem 0', color: '#3b82f6' }}>➕ Log Completed Prep Session</h4>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Done By (Prep Coach) *</label>
+                    <SearchableSelect 
+                      value={prepModal.doneBy} 
+                      onChange={e => setPrepModal({ ...prepModal, doneBy: e.target.value })}
+                    >
+                      <option value="">Select Prep Coach</option>
+                      {users.map(u => (
+                        <option key={u._id} value={u.name}>{u.name}</option>
+                      ))}
+                    </SearchableSelect>
+                  </div>
+
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Next Prep Number</label>
+                    <input 
+                      type="text" 
+                      disabled 
+                      value={`Prep #${(prepModal.student.prepHistory || []).length + 1} of ${prepModal.target}`} 
+                      style={{ padding: '0.5rem', background: 'var(--bg-surface-hover)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group" style={{ marginBottom: '0.8rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Prep Session Notes / Remarks *</label>
+                  <textarea 
+                    rows={2}
+                    value={prepModal.notes}
+                    onChange={e => setPrepModal({ ...prepModal, notes: e.target.value })}
+                    placeholder="Details about what was prepared (Q&A practice, university background, course knowledge, etc.)..."
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'var(--bg-color)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="dms-btn-save"
+                  style={{ width: '100%', background: '#3b82f6' }}
+                  onClick={async () => {
+                    if (!prepModal.doneBy) {
+                      alert("Please select who conducted this prep session ('Done by whom').");
+                      return;
+                    }
+                    if (!prepModal.notes.trim()) {
+                      alert("Please enter notes for this prep session.");
+                      return;
+                    }
+
+                    const newPrepNumber = (prepModal.student.prepHistory || []).length + 1;
+                    const prepRecord = {
+                      id: `prep-${Date.now()}`,
+                      prepNumber: newPrepNumber,
+                      doneBy: prepModal.doneBy,
+                      notes: prepModal.notes.trim(),
+                      timestamp: new Date().toISOString(),
+                      dateFormatted: new Date().toLocaleString('en-GB')
+                    };
+
+                    const updatedHistory = [...(prepModal.student.prepHistory || []), prepRecord];
+                    const nextDoneCount = updatedHistory.length;
+                    
+                    // If target is reached or student was already Prep ongoing, update app/int status if appropriate
+                    const updatePayload = {
+                      prepTarget: prepModal.target,
+                      prepsDoneCount: nextDoneCount,
+                      prepHistory: updatedHistory
+                    };
+
+                    if (nextDoneCount >= prepModal.target && prepModal.student.intStatus === 'Prep ongoing') {
+                      updatePayload.intStatus = 'Prep Done';
+                    }
+
+                    const updatedStudent = { ...prepModal.student, ...updatePayload };
+                    setStudents(students.map(s => s._id === updatedStudent._id ? updatedStudent : s));
+                    setPrepModal({ ...prepModal, student: updatedStudent, notes: '' });
+
+                    try {
+                      await fetch(`${API_BASE}/api/students/${updatedStudent._id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatePayload)
+                      });
+                      logActivity('Prep Logged', `Prep #${newPrepNumber} marked done by ${prepModal.doneBy} for ${updatedStudent.name}`);
+                    } catch (err) {
+                      console.error("Failed to save prep record", err);
+                    }
+                  }}
+                >
+                  ✓ Save Prep Session (Permanent)
+                </button>
+              </div>
+
+              {/* Complete Prep Session History */}
+              <div>
+                <h4 style={{ margin: '0 0 0.6rem 0', color: 'var(--text-primary)' }}>
+                  📜 Prep History & Session Notes ({ (prepModal.student.prepHistory || []).length })
+                </h4>
+
+                {(!prepModal.student.prepHistory || prepModal.student.prepHistory.length === 0) ? (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-secondary)', background: 'var(--bg-surface-hover)', borderRadius: '8px' }}>
+                    No preps logged yet for this student.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '250px', overflowY: 'auto' }}>
+                    {prepModal.student.prepHistory.map((rec, rIdx) => (
+                      <div 
+                        key={rec.id || rIdx} 
+                        style={{ background: 'var(--bg-surface-hover)', padding: '0.8rem', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Prep #{rec.prepNumber || (rIdx + 1)} — Conducted by: <span style={{ color: '#3b82f6' }}>{rec.doneBy}</span>
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {rec.dateFormatted || new Date(rec.timestamp).toLocaleString('en-GB')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+                          {rec.notes}
+                        </div>
+                        <div style={{ marginTop: '0.4rem', fontSize: '0.7rem', color: '#10b981' }}>
+                          🔒 Verified & Immutable
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            <div className="dms-modal-footer" style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
+              <button 
+                type="button" 
+                className="dms-btn-cancel" 
+                onClick={() => setPrepModal({ show: false, student: null, doneBy: '', notes: '', target: 12 })}
+                style={{ width: '100%' }}
+              >
+                Close Prep Manager
+              </button>
+            </div>
           </div>
         </div>
       )}
