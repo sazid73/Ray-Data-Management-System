@@ -252,7 +252,18 @@ export const api = {
       recruiterHistory: r.recruiter_history || [],
       chaserHistory: r.chaser_history || [],
       chasers: r.chasers || { cv: '', ps: '', qa: '', sub: '' },
-      ...(r.extra_fields || {})
+      tasksCompleted: (r.extra_fields && r.extra_fields.tasksCompleted) || {},
+      isUrgent: (r.extra_fields && r.extra_fields.isUrgent) || false,
+      ...(r.extra_fields || {}),
+      // Guarantee standard table columns take precedence over stale extra_fields
+      _id: r.id,
+      id: r.id,
+      studentId: r.student_id,
+      name: r.name,
+      appStatus: r.app_status || 'Awaiting submission',
+      sfeStatus: r.sfe_status || 'Awaiting Trial SFE Approval',
+      chasers: r.chasers || { cv: '', ps: '', qa: '', sub: '' },
+      subPendingNotes: r.sub_pending_notes || ''
     }));
   },
 
@@ -364,13 +375,42 @@ export const api = {
     if (fields.chaserHistory !== undefined) payload.chaser_history = fields.chaserHistory;
     if (fields.chasers !== undefined) payload.chasers = fields.chasers;
 
+    // Fetch existing extra_fields to merge tasksCompleted / isUrgent / etc.
+    if (fields.tasksCompleted !== undefined || fields.isUrgent !== undefined) {
+      try {
+        const curRes = await req(`/student_leads?id=eq.${id}&select=extra_fields`);
+        const curData = await curRes.json();
+        const existingExtra = (curData[0] && curData[0].extra_fields) || {};
+        payload.extra_fields = {
+          ...existingExtra,
+          ...(fields.tasksCompleted !== undefined ? { tasksCompleted: fields.tasksCompleted } : {}),
+          ...(fields.isUrgent !== undefined ? { isUrgent: fields.isUrgent } : {})
+        };
+      } catch (err) {
+        console.warn("Could not merge extra_fields", err);
+      }
+    }
+
     const res = await req(`/student_leads?id=eq.${id}`, {
       method: 'PATCH',
       headers: { 'Prefer': 'return=representation' },
       body: JSON.stringify(payload)
     });
     const updated = await res.json();
-    return { success: true, student: { ...updated[0], _id: updated[0].id } };
+    const upDoc = updated[0] || {};
+    return {
+      success: true,
+      student: {
+        ...upDoc,
+        _id: upDoc.id,
+        id: upDoc.id,
+        studentId: upDoc.student_id,
+        appStatus: upDoc.app_status,
+        chasers: upDoc.chasers,
+        subPendingNotes: upDoc.sub_pending_notes,
+        tasksCompleted: (upDoc.extra_fields && upDoc.extra_fields.tasksCompleted) || fields.tasksCompleted || {}
+      }
+    };
   },
 
   // === TASKS & WEEKLY WL ===
