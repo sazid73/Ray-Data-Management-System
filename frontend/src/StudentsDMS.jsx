@@ -96,7 +96,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
     intStatus: 'Interested and Responding', intStatusHistory: [],
     recruiter: '', recruiterHistory: [], 
     chaser: 'Click to assign', chaserHistory: [], 
-    agent: '', residential: '', location: '', appId: '',
+    agent: '', referral: '', refCompany: '', residential: '', location: '', appId: '',
     appStatus: 'Awaiting submission', appStatusHistory: [],
     sfeStatus: 'Assign for SFE', sfeStatusHistory: [],
     clTime: '', submit: '', docs: '0'
@@ -600,7 +600,12 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
   };
 
   const handleEditStudent = (student, viewOnly = false) => {
-    setNewStudent(student);
+    const studentWithReferral = {
+      ...student,
+      referral: student.referral || student.refCompany || (student.extra_fields && student.extra_fields.referral) || '',
+      refCompany: student.refCompany || student.referral || (student.extra_fields && student.extra_fields.referral) || ''
+    };
+    setNewStudent(studentWithReferral);
     setActiveModalTab('Details');
     setIsViewMode(viewOnly);
     setShowAddModal(true);
@@ -1291,7 +1296,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                       list="referral-suggestions-list"
                       type="text" 
                       value={newStudent.referral || ''} 
-                      onChange={e => setNewStudent({...newStudent, referral: e.target.value})} 
+                      onChange={e => setNewStudent({...newStudent, referral: e.target.value, refCompany: e.target.value})} 
                       placeholder="Who gave this referral?"
                       style={{ width: '100%', padding: '0.6rem', background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
                     />
@@ -1397,12 +1402,14 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                     </SearchableSelect>
                   </div>
                   <div className="input-group">
-                    <label>Referral</label>
+                    <label>Referral (Referred By)</label>
                     <input 
+                      list="referral-suggestions-list"
                       type="text" 
                       value={newStudent.referral || ''} 
-                      onChange={e => setNewStudent({...newStudent, referral: e.target.value})} 
+                      onChange={e => setNewStudent({...newStudent, referral: e.target.value, refCompany: e.target.value})} 
                       placeholder="Who gave this referral?"
+                      style={{ width: '100%', padding: '0.6rem', background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
                     />
                   </div>
                   <div className="input-group">

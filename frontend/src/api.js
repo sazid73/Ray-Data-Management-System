@@ -236,7 +236,7 @@ export const api = {
       recruiter: r.recruiter,
       chaser: r.chaser,
       agent: r.agent,
-      referral: r.referral || (r.extra_fields && r.extra_fields.referral) || '',
+      referral: (r.extra_fields && r.extra_fields.referral) || r.ref_company || r.referral || '',
       residential: r.residential,
       location: r.location,
       appId: r.app_id,
@@ -293,7 +293,7 @@ export const api = {
       mobile: student.mobile,
       course_and_campus1: student.courseAndCampus1,
       course_and_campus2: student.courseAndCampus2,
-      ref_company: student.refCompany,
+      ref_company: student.referral || student.refCompany || '',
       route: student.route,
       route_notes: student.routeNotes,
       route_company: student.routeCompany,
@@ -308,7 +308,6 @@ export const api = {
       recruiter: student.recruiter,
       chaser: student.chaser,
       agent: student.agent,
-      referral: student.referral,
       residential: student.residential,
       location: student.location,
       app_id: student.appId,
@@ -325,7 +324,7 @@ export const api = {
       recruiter_history: student.recruiterHistory || [],
       chaser_history: student.chaserHistory || [],
       chasers: student.chasers || { cv: '', ps: '', qa: '', sub: '' },
-      extra_fields: { ...student }
+      extra_fields: { ...student, referral: student.referral || student.refCompany || '' }
     };
 
     const res = await req('/student_leads', {
@@ -334,7 +333,19 @@ export const api = {
       body: JSON.stringify(payload)
     });
     const created = await res.json();
-    return { success: true, student: { ...created[0], _id: created[0].id } };
+    const newDoc = created[0] || {};
+    return { 
+      success: true, 
+      student: { 
+        ...(newDoc.extra_fields || {}),
+        ...newDoc, 
+        _id: newDoc.id,
+        id: newDoc.id,
+        studentId: newDoc.student_id,
+        referral: (newDoc.extra_fields && newDoc.extra_fields.referral) || newDoc.ref_company || student.referral || '',
+        refCompany: newDoc.ref_company || (newDoc.extra_fields && newDoc.extra_fields.referral) || student.referral || ''
+      } 
+    };
   },
 
   async updateStudent(id, fields) {
@@ -364,7 +375,11 @@ export const api = {
     if (fields.recruiter !== undefined) payload.recruiter = fields.recruiter;
     if (fields.chaser !== undefined) payload.chaser = fields.chaser;
     if (fields.agent !== undefined) payload.agent = fields.agent;
-    if (fields.referral !== undefined) payload.referral = fields.referral;
+    if (fields.referral !== undefined) {
+      payload.ref_company = fields.referral;
+    } else if (fields.refCompany !== undefined) {
+      payload.ref_company = fields.refCompany;
+    }
     if (fields.residential !== undefined) payload.residential = fields.residential;
     if (fields.location !== undefined) payload.location = fields.location;
     if (fields.appId !== undefined) payload.app_id = fields.appId;
@@ -382,7 +397,7 @@ export const api = {
     if (fields.chaserHistory !== undefined) payload.chaser_history = fields.chaserHistory;
     if (fields.chasers !== undefined) payload.chasers = fields.chasers;
 
-    // Fetch existing extra_fields to merge tasksCompleted / isUrgent / prep tracking fields
+    // Fetch existing extra_fields to merge tasksCompleted / isUrgent / prep tracking fields / referral / agent
     const extraFieldsToSync = ['tasksCompleted', 'isUrgent', 'chasersAssignedAt', 'prepTarget', 'prepsDoneCount', 'prepHistory', 'referral', 'agent'];
     const hasExtraUpdates = extraFieldsToSync.some(k => fields[k] !== undefined);
 
@@ -414,14 +429,18 @@ export const api = {
     return {
       success: true,
       student: {
+        ...(upDoc.extra_fields || {}),
         ...upDoc,
         _id: upDoc.id,
         id: upDoc.id,
         studentId: upDoc.student_id,
+        name: upDoc.name,
         appStatus: upDoc.app_status,
         intStatus: upDoc.int_status,
         chasers: upDoc.chasers,
         subPendingNotes: upDoc.sub_pending_notes,
+        refCompany: upDoc.ref_company || (upDoc.extra_fields && upDoc.extra_fields.referral) || fields.referral || '',
+        referral: (upDoc.extra_fields && upDoc.extra_fields.referral) || upDoc.ref_company || fields.referral || '',
         tasksCompleted: (upDoc.extra_fields && upDoc.extra_fields.tasksCompleted) || fields.tasksCompleted || {},
         prepTarget: (upDoc.extra_fields && upDoc.extra_fields.prepTarget) !== undefined ? upDoc.extra_fields.prepTarget : fields.prepTarget,
         prepsDoneCount: (upDoc.extra_fields && upDoc.extra_fields.prepsDoneCount) !== undefined ? upDoc.extra_fields.prepsDoneCount : fields.prepsDoneCount,
