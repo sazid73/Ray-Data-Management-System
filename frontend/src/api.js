@@ -639,7 +639,7 @@ export const api = {
 
   // === ACTIVITY LOGS ===
   async getLogs() {
-    const res = await req('/activity_logs?select=*&order=id.desc&limit=200');
+    const res = await req('/activity_logs?select=*&order=created_at.desc&limit=1000');
     const rows = await res.json();
     return rows.map(l => ({
       _id: l.id,
@@ -647,7 +647,8 @@ export const api = {
       timestamp: l.timestamp,
       user: l.user_name,
       action: l.action,
-      details: l.details
+      details: l.details,
+      createdAt: l.created_at
     }));
   },
 

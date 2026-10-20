@@ -4,7 +4,7 @@ import { api } from './api';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const Dashboard = ({ currentUserRole }) => {
+const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
   const [students, setStudents] = useState([]);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showRecruiterModal, setShowRecruiterModal] = useState(false);
@@ -29,7 +29,7 @@ const Dashboard = ({ currentUserRole }) => {
   const [modalFilterWeek, setModalFilterWeek] = useState('All');
   const [recruiterMonth, setRecruiterMonth] = useState('All');
   const [serverLogs, setServerLogs] = useState([]);
-  const [logsTab, setLogsTab] = useState('Prep Tracker');
+  const [logsTab, setLogsTab] = useState('All Activities');
   const [logSearchTerm, setLogSearchTerm] = useState('');
   const [logUserFilter, setLogUserFilter] = useState('');
   
@@ -115,7 +115,7 @@ const Dashboard = ({ currentUserRole }) => {
 
   useEffect(() => {
     if (showLogs) {
-      fetch(`${API_BASE}/api/logs`)
+      fetch(`${API_BASE}/api/logs?t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => setServerLogs(data))
         .catch(err => console.error(err));
@@ -149,7 +149,7 @@ const Dashboard = ({ currentUserRole }) => {
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Student Edit', details: `Assigned ${type} to ${val} for ${student.name}` })
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Admin', action: 'Student Edit', details: `Assigned ${type} to ${val} for ${student.name}` })
       }).catch(e => console.error(e));
     } catch (err) {
       console.error(err);
@@ -221,7 +221,7 @@ const Dashboard = ({ currentUserRole }) => {
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Student Edit', details: `Toggled task ${type} completion status to ${isDoneVal} for ${student.name}` })
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Admin', action: 'Student Edit', details: `Toggled task ${type} completion status to ${isDoneVal} for ${student.name}` })
       }).catch(e => console.error(e));
     } catch (err) {
       console.error(err);
@@ -267,7 +267,7 @@ const Dashboard = ({ currentUserRole }) => {
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Student Edit', details: `Assigned SFE to ${val || 'Unassigned'} for ${student.name}` })
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Admin', action: 'Student Edit', details: `Assigned SFE to ${val || 'Unassigned'} for ${student.name}` })
       }).catch(e => console.error(e));
     } catch (err) {
       console.error(err);
@@ -285,7 +285,7 @@ const Dashboard = ({ currentUserRole }) => {
         day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         shift: 'DAY TIME',
         status: 'pending',
-        assignedBy: 'Admin', // In real app, use currentUser
+        assignedBy: currentUser || 'Admin',
         startDateAndTime: new Date().toISOString()
       };
       
@@ -303,7 +303,7 @@ const Dashboard = ({ currentUserRole }) => {
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Task Assigned', details: `Assigned Chaser Task for Lead ${newChaserTask.leadNum} to ${newChaserTask.assignedTo}` })
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Admin', action: 'Task Assigned', details: `Assigned Chaser Task for Lead ${newChaserTask.leadNum} to ${newChaserTask.assignedTo}` })
       }).catch(e => console.error(e));
       
     } catch (err) {
@@ -346,7 +346,7 @@ const Dashboard = ({ currentUserRole }) => {
       fetch(`${API_BASE}/api/logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: 'Admin', action: 'Student Edit', details: `Updated SFE Status to ${newStatus} for ${student.name}` })
+        body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Admin', action: 'Student Edit', details: `Updated SFE Status to ${newStatus} for ${student.name}` })
       }).catch(e => console.error(e));
     } catch (err) {
       console.error(err);
@@ -504,13 +504,14 @@ const Dashboard = ({ currentUserRole }) => {
   const adminStats = getAdminStats();
   const recruiterStats = getRecruiterStats();
 
-  const prepLogs = serverLogs.filter(log => !log.action.includes('Student') && !log.action.includes('Interview '));
-  const studentLogs = serverLogs.filter(log => log.action.includes('Student'));
-  const interviewLogs = serverLogs.filter(log => log.action.includes('Interview '));
+  const prepLogs = serverLogs.filter(log => !log.action.includes('Student') && !log.action.includes('Interview ') && !log.action.includes('Prep Logged'));
+  const studentLogs = serverLogs.filter(log => log.action.includes('Student') || log.action.includes('Prep Logged') || log.action.includes('History Delete') || log.action.includes('Bulk Upload'));
+  const interviewLogs = serverLogs.filter(log => log.action.includes('Interview'));
 
   const getActiveLogs = () => {
     let logs = [];
-    if (logsTab === 'Students') logs = studentLogs;
+    if (logsTab === 'All Activities') logs = serverLogs;
+    else if (logsTab === 'Students') logs = studentLogs;
     else if (logsTab === 'Interviews') logs = interviewLogs;
     else logs = prepLogs;
 
@@ -524,7 +525,7 @@ const Dashboard = ({ currentUserRole }) => {
     }
     
     if (logUserFilter) {
-      logs = logs.filter(l => l.user === logUserFilter);
+      logs = logs.filter(l => (l.user || '').toLowerCase() === logUserFilter.toLowerCase());
     }
     
     return logs;
@@ -2106,8 +2107,8 @@ const Dashboard = ({ currentUserRole }) => {
               <button onClick={() => setShowLogs(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}>✗</button>
             </div>
             
-            <div style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-              {['Prep Tracker', 'Students', 'Interviews'].map(tab => (
+            <div style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto' }}>
+              {['All Activities', 'Prep Tracker', 'Students', 'Interviews'].map(tab => (
                 <button 
                   key={tab}
                   onClick={() => setLogsTab(tab)}
@@ -2119,10 +2120,11 @@ const Dashboard = ({ currentUserRole }) => {
                     padding: '0.5rem 0',
                     borderBottom: logsTab === tab ? '2px solid #3b82f6' : '2px solid transparent',
                     cursor: 'pointer',
-                    fontSize: '1rem'
+                    fontSize: '1rem',
+                    whiteSpace: 'nowrap'
                   }}
                 >
-                  {tab === 'Prep Tracker' ? '📅' : tab === 'Students' ? '🧑‍🎓' : '🎤'} {tab}
+                  {tab === 'All Activities' ? '⚡' : tab === 'Prep Tracker' ? '📅' : tab === 'Students' ? '🧑‍🎓' : '🎤'} {tab}
                 </button>
               ))}
             </div>

@@ -1411,7 +1411,7 @@ function App() {
         />
         
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {currentView === 'dashboard' && <Dashboard currentUserRole={currentUserRole} currentUserData={currentUserData} />}
+          {currentView === 'dashboard' && <Dashboard currentUser={currentUser} currentUserRole={currentUserRole} currentUserData={currentUserData} />}
           {currentView === 'students' && <StudentsDMS setCurrentView={setCurrentView} currentUser={currentUser} currentUserRole={currentUserRole} currentUserData={currentUserData} />}
           
           {currentView === 'prep_interviews' && renderPrepInterviews()}
