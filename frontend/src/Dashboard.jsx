@@ -47,6 +47,8 @@ const Dashboard = ({ currentUserRole }) => {
   const [prepGrid, setPrepGrid] = useState([]);
   const [showPrepModal, setShowPrepModal] = useState(false);
   const [prepCoachModal, setPrepCoachModal] = useState({ show: false, coach: null });
+  const [agentRefModal, setAgentRefModal] = useState({ show: false, type: 'all', recruiter: null });
+  const [agentRefSession, setAgentRefSession] = useState('All');
   
   const [tasks, setTasks] = useState([]);
   const [recruiterTaskFilter, setRecruiterTaskFilter] = useState('All');
@@ -64,7 +66,7 @@ const Dashboard = ({ currentUserRole }) => {
   useEffect(() => {
     setModalSearchTerm('');
     setShowOnlyUrgentSfeSubmitted(false);
-  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal, prepCoachModal.show]);
+  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal, prepCoachModal.show, agentRefModal.show]);
 
   useEffect(() => {
     const t = Date.now();
@@ -656,6 +658,54 @@ const Dashboard = ({ currentUserRole }) => {
 
   const sortedCoachPreps = Object.values(weeklyCoachPrepsMap).sort((a, b) => b.count - a.count);
 
+  // Recruiter Acquisition: Agent vs Referral Multivariable Breakdown
+  const getAgentRefStats = () => {
+    const stats = {};
+    const filtered = agentRefSession === 'All' ? students : students.filter(s => s.session === agentRefSession);
+
+    filtered.forEach(s => {
+      const rawR = s.recruiter;
+      if (!rawR) return;
+      const r = rawR.split(/[\s/]/)[0]; // core name
+
+      if (!stats[r]) {
+        stats[r] = {
+          recruiter: r,
+          agentCount: 0,
+          referralCount: 0,
+          directCount: 0,
+          total: 0,
+          agentStudents: [],
+          referralStudents: []
+        };
+      }
+
+      const hasAgent = s.agent && s.agent.trim() !== '' && s.agent.trim().toLowerCase() !== 'direct';
+      const hasReferral = s.referral && s.referral.trim() !== '';
+
+      if (hasAgent) {
+        stats[r].agentCount++;
+        stats[r].total++;
+        stats[r].agentStudents.push(s);
+      }
+      if (hasReferral) {
+        stats[r].referralCount++;
+        stats[r].total++;
+        stats[r].referralStudents.push(s);
+      }
+      if (!hasAgent && !hasReferral) {
+        stats[r].directCount++;
+      }
+    });
+
+    return Object.values(stats).sort((a, b) => (b.agentCount + b.referralCount) - (a.agentCount + a.referralCount));
+  };
+
+  const agentRefStats = getAgentRefStats();
+  const maxAgentRefTotal = Math.max(...agentRefStats.map(s => s.agentCount + s.referralCount), 1);
+  const totalAgentFiles = agentRefStats.reduce((sum, s) => sum + s.agentCount, 0);
+  const totalRefFiles = agentRefStats.reduce((sum, s) => sum + s.referralCount, 0);
+
   const sfeTotal = colSfeAwaiting.length + colSfeOngoing.length + colSfeUrgent.length + colSfeSubmitted.length + colSfeApproved.length;
   const sfeCompletionRate = sfeTotal > 0 ? Math.round((colSfeApproved.length / sfeTotal) * 100) : 0;
 
@@ -881,6 +931,16 @@ const Dashboard = ({ currentUserRole }) => {
             📈 Recruiter Performance
           </button>
           <button 
+            onClick={() => setAgentRefModal({ show: true, type: 'all', recruiter: null })} 
+            style={{ 
+              background: '#2563eb', color: '#fff', border: 'none', padding: '0.8rem 1.5rem', 
+              borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+            }}
+          >
+            🤝 Agent & Referral Files
+          </button>
+          <button 
             onClick={() => setShowAnalyticsModal(true)} 
             style={{ 
               background: '#3b82f6', color: '#fff', border: 'none', padding: '0.8rem 1.5rem', 
@@ -901,6 +961,143 @@ const Dashboard = ({ currentUserRole }) => {
             📋 Activity Logs
           </button>
         </div>
+      </div>
+
+      {/* Recruiter Acquisition: Agent vs Referral Multivariable Bar Chart */}
+      <div style={{ background: 'var(--bg-surface)', padding: '1.5rem 2rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.06)', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.2rem' }}>
+              📊 Recruiter Acquisition: Agent & Referral Files
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              Multivariable diagram showing total files acquired per recruiter (Agent + Referral). Click a bar section to drill into student files.
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.85rem' }}>
+              <div 
+                onClick={() => setAgentRefModal({ show: true, type: 'agent', recruiter: null })}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.3rem 0.6rem', borderRadius: '6px', background: 'rgba(37, 99, 235, 0.1)' }}
+                title="Click to view all Agent files"
+              >
+                <span style={{ width: '12px', height: '12px', background: '#2563eb', borderRadius: '2px', display: 'inline-block' }}></span>
+                <span style={{ fontWeight: 600, color: '#2563eb' }}>Agent Files ({totalAgentFiles})</span>
+              </div>
+              <div 
+                onClick={() => setAgentRefModal({ show: true, type: 'referral', recruiter: null })}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', padding: '0.3rem 0.6rem', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.1)' }}
+                title="Click to view all Referral files"
+              >
+                <span style={{ width: '12px', height: '12px', background: '#10b981', borderRadius: '2px', display: 'inline-block' }}></span>
+                <span style={{ fontWeight: 600, color: '#10b981' }}>Referral Files ({totalRefFiles})</span>
+              </div>
+            </div>
+
+            <SearchableSelect 
+              value={agentRefSession}
+              onChange={e => setAgentRefSession(e.target.value)}
+              style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem' }}
+            >
+              <option value="All">All Sessions</option>
+              {uniqueSessions.map(s => <option key={s} value={s}>{s}</option>)}
+            </SearchableSelect>
+          </div>
+        </div>
+
+        {agentRefStats.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+            No agent or referral files logged yet for this session.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+            {agentRefStats.map(item => {
+              const totalFiles = item.agentCount + item.referralCount;
+              const agentPct = totalFiles > 0 ? (item.agentCount / totalFiles) * 100 : 0;
+              const refPct = totalFiles > 0 ? (item.referralCount / totalFiles) * 100 : 0;
+              const barWidthPct = Math.max(8, (totalFiles / maxAgentRefTotal) * 100);
+
+              return (
+                <div key={item.recruiter} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 140px', alignItems: 'center', gap: '1rem' }}>
+                  {/* Left: Recruiter Name */}
+                  <div style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.recruiter}>
+                    {item.recruiter}
+                  </div>
+
+                  {/* Center: Multivariable Horizontal Stacked Bar */}
+                  <div style={{ position: 'relative', width: '100%', background: 'rgba(255,255,255,0.03)', height: '28px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)', display: 'flex' }}>
+                    <div style={{ width: `${barWidthPct}%`, height: '100%', display: 'flex', transition: 'width 0.4s ease' }}>
+                      {/* Agent Files Part */}
+                      {item.agentCount > 0 && (
+                        <div 
+                          onClick={() => setAgentRefModal({ show: true, type: 'agent', recruiter: item.recruiter })}
+                          style={{ 
+                            width: `${agentPct}%`, 
+                            background: '#2563eb', 
+                            height: '100%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#fff', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 'bold', 
+                            cursor: 'pointer',
+                            transition: 'opacity 0.2s',
+                            position: 'relative'
+                          }}
+                          title={`Click to view ${item.agentCount} Agent files for ${item.recruiter}`}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                        >
+                          {agentPct >= 15 ? `Agent: ${item.agentCount}` : item.agentCount}
+                        </div>
+                      )}
+                      {/* Referral Files Part */}
+                      {item.referralCount > 0 && (
+                        <div 
+                          onClick={() => setAgentRefModal({ show: true, type: 'referral', recruiter: item.recruiter })}
+                          style={{ 
+                            width: `${refPct}%`, 
+                            background: '#10b981', 
+                            height: '100%', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#fff', 
+                            fontSize: '0.75rem', 
+                            fontWeight: 'bold', 
+                            cursor: 'pointer',
+                            transition: 'opacity 0.2s',
+                            position: 'relative'
+                          }}
+                          title={`Click to view ${item.referralCount} Referred files for ${item.recruiter}`}
+                          onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                        >
+                          {refPct >= 15 ? `Ref: ${item.referralCount}` : item.referralCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right: Total Files (Agent + Ref) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                      {totalFiles} {totalFiles === 1 ? 'file' : 'files'}
+                    </strong>
+                    <span 
+                      onClick={() => setAgentRefModal({ show: true, type: 'all', recruiter: item.recruiter })}
+                      style={{ fontSize: '0.75rem', color: '#6366f1', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      (Details)
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Admin Task Workflow Widget Section */}
@@ -2821,6 +3018,183 @@ const Dashboard = ({ currentUserRole }) => {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {/* AGENT & REFERRAL FILES DETAILS MODAL */}
+      {agentRefModal.show && (() => {
+        const { type, recruiter } = agentRefModal;
+        const currentSession = agentRefSession;
+        let baseStudents = currentSession === 'All' ? students : students.filter(s => s.session === currentSession);
+
+        if (recruiter) {
+          baseStudents = baseStudents.filter(s => {
+            const r = (s.recruiter || '').split(/[\s/]/)[0];
+            return r === recruiter;
+          });
+        }
+
+        let studentList = [];
+        if (type === 'agent') {
+          studentList = baseStudents.filter(s => s.agent && s.agent.trim() !== '' && s.agent.trim().toLowerCase() !== 'direct');
+        } else if (type === 'referral') {
+          studentList = baseStudents.filter(s => s.referral && s.referral.trim() !== '');
+        } else {
+          studentList = baseStudents.filter(s => 
+            (s.agent && s.agent.trim() !== '' && s.agent.trim().toLowerCase() !== 'direct') ||
+            (s.referral && s.referral.trim() !== '')
+          );
+        }
+
+        if (modalSearchTerm) {
+          const term = modalSearchTerm.toLowerCase();
+          studentList = studentList.filter(s => 
+            (s.name && s.name.toLowerCase().includes(term)) ||
+            (s.agent && s.agent.toLowerCase().includes(term)) ||
+            (s.referral && s.referral.toLowerCase().includes(term)) ||
+            (s.recruiter && s.recruiter.toLowerCase().includes(term)) ||
+            (s.studentId && s.studentId.toLowerCase().includes(term))
+          );
+        }
+
+        const titleText = type === 'agent' 
+          ? `Agent Files ${recruiter ? `for ${recruiter}` : ''}`
+          : type === 'referral'
+          ? `Referred Files ${recruiter ? `for ${recruiter}` : ''}`
+          : `Agent & Referral Files ${recruiter ? `for ${recruiter}` : ''}`;
+
+        return (
+          <div className="dms-modal-overlay" style={{ zIndex: 2000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="dms-modal" style={{ background: 'var(--bg-surface)', maxWidth: '1100px', width: '95%', maxHeight: '90vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', border: '1px solid var(--border-color)' }}>
+              <div className="dms-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {type === 'agent' ? '🏢' : type === 'referral' ? '🎁' : '🤝'} {titleText}
+                  </h3>
+                  
+                  {/* Filter tabs */}
+                  <div style={{ display: 'flex', gap: '0.4rem', background: 'var(--bg-color)', padding: '0.2rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    <button 
+                      onClick={() => setAgentRefModal({ ...agentRefModal, type: 'all' })}
+                      style={{ border: 'none', background: type === 'all' ? '#4f46e5' : 'transparent', color: type === 'all' ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                    >
+                      All
+                    </button>
+                    <button 
+                      onClick={() => setAgentRefModal({ ...agentRefModal, type: 'agent' })}
+                      style={{ border: 'none', background: type === 'agent' ? '#2563eb' : 'transparent', color: type === 'agent' ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                    >
+                      Agent Files
+                    </button>
+                    <button 
+                      onClick={() => setAgentRefModal({ ...agentRefModal, type: 'referral' })}
+                      style={{ border: 'none', background: type === 'referral' ? '#10b981' : 'transparent', color: type === 'referral' ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                    >
+                      Referred Files
+                    </button>
+                  </div>
+
+                  {recruiter && (
+                    <button 
+                      onClick={() => setAgentRefModal({ ...agentRefModal, recruiter: null })}
+                      style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                    >
+                      Clear Recruiter: {recruiter} ✕
+                    </button>
+                  )}
+
+                  <input 
+                    type="text" 
+                    placeholder="Search student, agent, referral..." 
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem', width: '220px' }}
+                  />
+                </div>
+                <button onClick={() => setAgentRefModal({ show: false, type: 'all', recruiter: null })} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}>✗</button>
+              </div>
+
+              <div className="dms-modal-body" style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0.8rem 1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    Session: <strong style={{ color: 'var(--text-primary)' }}>{currentSession}</strong> | Filter: <strong style={{ color: 'var(--text-primary)' }}>{type.toUpperCase()}</strong>
+                  </div>
+                  <span style={{ background: type === 'agent' ? '#2563eb' : type === 'referral' ? '#10b981' : '#4f46e5', color: '#fff', padding: '0.2rem 0.7rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    {studentList.length} Students
+                  </span>
+                </div>
+
+                {studentList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No student files matching the selected criteria.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                    {studentList.map(s => {
+                      const isAgentFile = s.agent && s.agent.trim() !== '' && s.agent.trim().toLowerCase() !== 'direct';
+                      const isRefFile = s.referral && s.referral.trim() !== '';
+
+                      return (
+                        <div 
+                          key={s._id}
+                          style={{
+                            background: 'var(--bg-surface-hover)',
+                            padding: '1.2rem',
+                            borderRadius: '8px',
+                            borderLeft: `4px solid ${isRefFile ? '#10b981' : '#2563eb'}`,
+                            border: '1px solid var(--border-color)',
+                            borderLeftWidth: '4px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.6rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-primary)' }}>{s.name || 'Unnamed Student'}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{s.studentId || ''} {s.session ? `• ${s.session}` : ''}</div>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'var(--bg-color)', color: 'var(--text-secondary)' }}>
+                              {s.appStatus || 'Awaiting'}
+                            </span>
+                          </div>
+
+                          {s.mobile && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>📞 {s.mobile}</div>
+                          )}
+
+                          {s.courseAndCampus1 && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>🎓 {s.courseAndCampus1}</div>
+                          )}
+
+                          {/* Recruiter info */}
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>👨‍💼 Recruiter:</span>
+                            <strong>{s.recruiter || 'Unassigned'}</strong>
+                          </div>
+
+                          {/* Agent Box */}
+                          {isAgentFile && (
+                            <div style={{ background: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.3)', padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#2563eb', display: 'block' }}>🏢 AGENT:</span>
+                              <strong style={{ color: 'var(--text-primary)' }}>{s.agent}</strong>
+                            </div>
+                          )}
+
+                          {/* Referral Box - Who gave that referral */}
+                          {isRefFile && (
+                            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#10b981', display: 'block' }}>🎁 REFERRED BY:</span>
+                              <strong style={{ color: 'var(--text-primary)' }}>{s.referral}</strong>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -161,6 +161,15 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                loaded.push(newCol);
              }
            }
+           if (!loaded.some(c => c.id === 'referral')) {
+             const agentIdx = loaded.findIndex(c => c.id === 'agent');
+             const refCol = { id: 'referral', label: 'REFERRAL', visible: true, order: 17, isSpecial: false, filterable: true, filterType: 'text' };
+             if (agentIdx !== -1) {
+               loaded.splice(agentIdx + 1, 0, refCol);
+             } else {
+               loaded.push(refCol);
+             }
+           }
            setTableColumns(loaded);
          }
       })
@@ -667,6 +676,7 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
   const uniqueSessions = [...new Set(students.map(s => s.session).filter(Boolean))];
   const uniqueIntStatuses = [...new Set(students.map(s => s.intStatus).filter(Boolean))];
   const uniqueAgents = [...new Set(students.map(s => s.agent).filter(Boolean))];
+  const uniqueReferrals = [...new Set(students.map(s => s.referral).filter(Boolean))];
   const uniqueChasers = [...new Set(students.map(s => s.chaser).filter(c => c && c !== 'Click to assign'))];
   const uniqueSources = [...new Set(students.map(s => s.source).filter(Boolean))];
   const uniqueResidential = [...new Set(students.map(s => s.residential).filter(Boolean))];
@@ -1260,10 +1270,36 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                   </div>
                   <div className="input-group">
                     <label>Agent</label>
-                    <SearchableSelect value={newStudent.agent} onChange={e => setNewStudent({...newStudent, agent: e.target.value})}>
-                      <option value="">Select</option>
-                      <option value="Direct">Direct</option>
-                    </SearchableSelect>
+                    <input 
+                      list="agent-suggestions-list"
+                      type="text" 
+                      value={newStudent.agent || ''} 
+                      onChange={e => setNewStudent({...newStudent, agent: e.target.value})} 
+                      placeholder="Enter or select Agent..."
+                      style={{ width: '100%', padding: '0.6rem', background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                    />
+                    <datalist id="agent-suggestions-list">
+                      <option value="Direct" />
+                      {uniqueAgents.filter(a => a && a !== 'Direct').map(a => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="input-group">
+                    <label>Referral (Referred By)</label>
+                    <input 
+                      list="referral-suggestions-list"
+                      type="text" 
+                      value={newStudent.referral || ''} 
+                      onChange={e => setNewStudent({...newStudent, referral: e.target.value})} 
+                      placeholder="Who gave this referral?"
+                      style={{ width: '100%', padding: '0.6rem', background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: '6px' }}
+                    />
+                    <datalist id="referral-suggestions-list">
+                      {uniqueReferrals.map(r => (
+                        <option key={r} value={r} />
+                      ))}
+                    </datalist>
                   </div>
                 </div>
               )}
@@ -1362,7 +1398,12 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
                   </div>
                   <div className="input-group">
                     <label>Referral</label>
-                    <input type="text" />
+                    <input 
+                      type="text" 
+                      value={newStudent.referral || ''} 
+                      onChange={e => setNewStudent({...newStudent, referral: e.target.value})} 
+                      placeholder="Who gave this referral?"
+                    />
                   </div>
                   <div className="input-group">
                     <label>Request Status</label>

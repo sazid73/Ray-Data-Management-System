@@ -236,6 +236,7 @@ export const api = {
       recruiter: r.recruiter,
       chaser: r.chaser,
       agent: r.agent,
+      referral: r.referral || (r.extra_fields && r.extra_fields.referral) || '',
       residential: r.residential,
       location: r.location,
       appId: r.app_id,
@@ -307,6 +308,7 @@ export const api = {
       recruiter: student.recruiter,
       chaser: student.chaser,
       agent: student.agent,
+      referral: student.referral,
       residential: student.residential,
       location: student.location,
       app_id: student.appId,
@@ -362,6 +364,7 @@ export const api = {
     if (fields.recruiter !== undefined) payload.recruiter = fields.recruiter;
     if (fields.chaser !== undefined) payload.chaser = fields.chaser;
     if (fields.agent !== undefined) payload.agent = fields.agent;
+    if (fields.referral !== undefined) payload.referral = fields.referral;
     if (fields.residential !== undefined) payload.residential = fields.residential;
     if (fields.location !== undefined) payload.location = fields.location;
     if (fields.appId !== undefined) payload.app_id = fields.appId;
@@ -380,7 +383,7 @@ export const api = {
     if (fields.chasers !== undefined) payload.chasers = fields.chasers;
 
     // Fetch existing extra_fields to merge tasksCompleted / isUrgent / prep tracking fields
-    const extraFieldsToSync = ['tasksCompleted', 'isUrgent', 'chasersAssignedAt', 'prepTarget', 'prepsDoneCount', 'prepHistory'];
+    const extraFieldsToSync = ['tasksCompleted', 'isUrgent', 'chasersAssignedAt', 'prepTarget', 'prepsDoneCount', 'prepHistory', 'referral', 'agent'];
     const hasExtraUpdates = extraFieldsToSync.some(k => fields[k] !== undefined);
 
     if (hasExtraUpdates) {
