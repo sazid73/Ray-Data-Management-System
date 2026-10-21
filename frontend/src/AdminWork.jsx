@@ -215,6 +215,13 @@ const AdminWork = ({ currentUserRole, currentUser, currentUserData }) => {
       empData[key] = dayData;
       const next = { ...prev, [empName]: empData };
       persistWorkData(next, selectedMonth);
+
+      api.logActivity({
+        user: currentUser || empName,
+        action: 'Admin Work',
+        details: `Added ${taskLabel} (${taskMinutes}m) for ${empName} on W${week} ${day}`
+      }).catch(e => console.warn(e));
+
       return next;
     });
   };

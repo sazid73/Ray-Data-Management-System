@@ -2103,7 +2103,24 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
         <div className="dms-modal-overlay" style={{ zIndex: 2000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="dms-modal" style={{ background: 'var(--bg-surface)', maxWidth: '900px', width: '90%', maxHeight: '90vh', overflowY: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', border: '1px solid var(--border-color)' }}>
             <div className="dms-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', borderBottom: 'none' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Shift Activity Logs</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Shift Activity Logs</h3>
+                <span style={{ fontSize: '0.8rem', background: 'var(--bg-surface-hover)', padding: '0.2rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                  {serverLogs.length} entries
+                </span>
+                <button 
+                  onClick={() => {
+                    fetch(`${API_BASE}/api/logs?t=${Date.now()}`, { cache: 'no-store' })
+                      .then(res => res.json())
+                      .then(data => setServerLogs(data))
+                      .catch(err => console.error(err));
+                  }} 
+                  title="Refresh activity logs"
+                  style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }}
+                >
+                  🔄 Refresh
+                </button>
+              </div>
               <button onClick={() => setShowLogs(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem' }}>✗</button>
             </div>
             

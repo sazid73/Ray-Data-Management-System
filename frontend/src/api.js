@@ -653,17 +653,23 @@ export const api = {
   },
 
   async logActivity({ timestamp, user, action, details }) {
-    const payload = {
-      timestamp: timestamp || new Date().toLocaleString(),
-      user_name: user,
-      action,
-      details
-    };
-    await req('/activity_logs', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    return { success: true, message: 'Log created' };
+    try {
+      const activeUser = user || (typeof localStorage !== 'undefined' ? localStorage.getItem('trackerUser') : null) || 'Unknown';
+      const payload = {
+        timestamp: timestamp || new Date().toLocaleString(),
+        user_name: activeUser,
+        action: action || 'Activity',
+        details: details || ''
+      };
+      await req('/activity_logs', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      return { success: true, message: 'Log created' };
+    } catch (err) {
+      console.warn("Failed to record activity log", err);
+      return { success: false, error: err.message };
+    }
   },
 
   // === HISTORY ===
@@ -780,6 +786,12 @@ export const api = {
       monthLogs[employeeName] = empLogs;
 
       await this.saveAdminWorkData(`WORK_LOGS_${monthKey}`, monthLogs);
+      // Also record in Activity Logs
+      this.logActivity({
+        user: employeeName,
+        action: 'Task Completed',
+        details: `Completed ${taskType.toUpperCase()} for ${studentName || 'student'} in ${durationMinutes}m`
+      }).catch(e => console.warn(e));
       // Also broadcast real-time event
       realtimeTracker.emit('admin_work_updated', { monthKey, employeeName, cellKey });
       return { success: true };

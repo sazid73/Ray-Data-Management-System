@@ -177,10 +177,11 @@ const StudentsDMS = ({ setCurrentView, currentUser, currentUserRole, currentUser
   }, []);
 
   const logActivity = (action, details) => {
+    const userToLog = currentUser || (typeof localStorage !== 'undefined' ? localStorage.getItem('trackerUser') : null) || 'Unknown';
     fetch(`${API_BASE}/api/logs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: currentUser || 'Unknown', action, details })
+      body: JSON.stringify({ timestamp: new Date().toLocaleString(), user: userToLog, action, details })
     }).catch(e => console.error(e));
   };
 
