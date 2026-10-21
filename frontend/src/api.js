@@ -701,6 +701,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload)
     });
+
+    // Also mirror to Activity Logs so it appears in Shift Activity Logs
+    this.logActivity({
+      user: user || (typeof localStorage !== 'undefined' ? localStorage.getItem('trackerUser') : null) || 'Unknown',
+      action: oldText && newText ? 'Edited Booking' : newText ? 'Added Booking' : 'Deleted Booking',
+      details: oldText && newText 
+        ? `Changed "${oldText}" to "${newText}" in slot ${Number(slotIndex) + 1} (${cellKey})`
+        : newText 
+          ? `Added "${newText}" in slot ${Number(slotIndex) + 1} (${cellKey})`
+          : `Removed "${oldText}" from slot ${Number(slotIndex) + 1} (${cellKey})`
+    }).catch(e => console.warn(e));
+
     return { success: true };
   },
 

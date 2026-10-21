@@ -504,15 +504,17 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
   const adminStats = getAdminStats();
   const recruiterStats = getRecruiterStats();
 
-  const prepLogs = serverLogs.filter(log => !log.action.includes('Student') && !log.action.includes('Interview ') && !log.action.includes('Prep Logged'));
-  const studentLogs = serverLogs.filter(log => log.action.includes('Student') || log.action.includes('Prep Logged') || log.action.includes('History Delete') || log.action.includes('Bulk Upload'));
+  const prepLogs = serverLogs.filter(log => !log.action.includes('Student') && !log.action.includes('Interview') && !log.action.includes('Admin Work') && !log.action.includes('Task Completed'));
+  const studentLogs = serverLogs.filter(log => log.action.includes('Student') || log.action.includes('Prep Logged') || log.action.includes('History Delete') || log.action.includes('Bulk Upload') || log.action.includes('Task Completed'));
   const interviewLogs = serverLogs.filter(log => log.action.includes('Interview'));
+  const adminWorkLogs = serverLogs.filter(log => log.action.includes('Admin Work') || log.action.includes('Task Completed') || log.action.includes('Task Assigned'));
 
   const getActiveLogs = () => {
     let logs = [];
     if (logsTab === 'All Activities') logs = serverLogs;
     else if (logsTab === 'Students') logs = studentLogs;
     else if (logsTab === 'Interviews') logs = interviewLogs;
+    else if (logsTab === 'Admin Work') logs = adminWorkLogs;
     else logs = prepLogs;
 
     if (logSearchTerm) {
@@ -2125,7 +2127,7 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
             </div>
             
             <div style={{ display: 'flex', gap: '1rem', padding: '0 1.5rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto' }}>
-              {['All Activities', 'Prep Tracker', 'Students', 'Interviews'].map(tab => (
+              {['All Activities', 'Admin Work', 'Prep Tracker', 'Students', 'Interviews'].map(tab => (
                 <button 
                   key={tab}
                   onClick={() => setLogsTab(tab)}
@@ -2141,7 +2143,7 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  {tab === 'All Activities' ? '⚡' : tab === 'Prep Tracker' ? '📅' : tab === 'Students' ? '🧑‍🎓' : '🎤'} {tab}
+                  {tab === 'All Activities' ? '⚡' : tab === 'Admin Work' ? '💼' : tab === 'Prep Tracker' ? '📅' : tab === 'Students' ? '🧑‍🎓' : '🎤'} {tab}
                 </button>
               ))}
             </div>

@@ -487,6 +487,12 @@ function App() {
       const newCell = { ...cell, slots: newSlots };
       syncCellToServer(cellKey, newCell);
 
+      if (nextStatus) {
+        logActivity('Prep Status', `Marked slot ${slotIndex + 1} (${time}) as "${nextStatus}"${empName ? ` by ${empName.trim()}` : ''}`);
+      } else {
+        logActivity('Prep Status', `Cleared status for slot ${slotIndex + 1} (${time})`);
+      }
+
       return {
         ...prev,
         [cellKey]: newCell
