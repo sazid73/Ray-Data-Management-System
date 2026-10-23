@@ -12,6 +12,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, setSidebarOpen }) => {
       { id: 'interviews', label: 'Interviews', icon: '💬' }
     ]},
     { section: 'ACADEMIC', items: [
+      { id: 'intake_courses', label: 'Intakes & Courses', icon: '📚' },
       { id: 'course_campus', label: 'Course and Campus', icon: '🏛️' }
     ]},
     { section: 'MANAGEMENT', items: [

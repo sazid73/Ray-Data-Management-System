@@ -11,6 +11,7 @@ import Dashboard from './Dashboard';
 import WeeklyWL from './WeeklyWL';
 import Settings from './Settings';
 import AdminWork from './AdminWork';
+import CollegeCoursesIntakes from './CollegeCoursesIntakes';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -1422,12 +1423,13 @@ function App() {
           
           {currentView === 'prep_interviews' && renderPrepInterviews()}
           {currentView === 'interviews' && <Interviews currentUser={currentUser} currentUserData={currentUserData} />}
+          {currentView === 'intake_courses' && <CollegeCoursesIntakes currentUserRole={currentUserRole} currentUser={currentUser} currentUserData={currentUserData} />}
           {currentView === 'course_campus' && <CourseAndCampus currentUserRole={currentUserRole} currentUser={currentUser} currentUserData={currentUserData} />}
           {currentView === 'admin_work' && <AdminWork currentUserRole={currentUserRole} currentUser={currentUser} currentUserData={currentUserData} />}
           {currentView === 'settings' && <Settings currentUserRole={currentUserRole} currentUser={currentUser} currentUserData={currentUserData} />}
           {currentView === 'weekly_wl' && <WeeklyWL currentUserRole={currentUserRole} currentUser={currentUser} currentUserData={currentUserData} />}
           
-          {currentView !== 'dashboard' && currentView !== 'students' && currentView !== 'prep_interviews' && currentView !== 'interviews' && currentView !== 'course_campus' && currentView !== 'admin_work' && currentView !== 'weekly_wl' && currentView !== 'settings' && (
+          {currentView !== 'dashboard' && currentView !== 'students' && currentView !== 'prep_interviews' && currentView !== 'interviews' && currentView !== 'intake_courses' && currentView !== 'course_campus' && currentView !== 'admin_work' && currentView !== 'weekly_wl' && currentView !== 'settings' && (
             <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
               <h2>{currentView.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h2>
               <p style={{ fontSize: '1.2rem', marginTop: '1rem' }}>This module is currently under construction.</p>

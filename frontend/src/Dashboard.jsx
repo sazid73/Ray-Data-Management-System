@@ -49,6 +49,8 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
   const [prepCoachModal, setPrepCoachModal] = useState({ show: false, coach: null });
   const [agentRefModal, setAgentRefModal] = useState({ show: false, type: 'all', recruiter: null });
   const [agentRefSession, setAgentRefSession] = useState('All');
+  const [duplicateModal, setDuplicateModal] = useState({ show: false, type: 'all', cluster: null });
+  const [duplicateFilterSession, setDuplicateFilterSession] = useState('All');
   
   const [tasks, setTasks] = useState([]);
   const [recruiterTaskFilter, setRecruiterTaskFilter] = useState('All');
@@ -66,7 +68,7 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
   useEffect(() => {
     setModalSearchTerm('');
     setShowOnlyUrgentSfeSubmitted(false);
-  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal, prepCoachModal.show, agentRefModal.show]);
+  }, [showSfeWorkflowModal, showIntWorkflowModal, showEnrollmentModal, showAdminTaskModal, showRecruiterTaskModal, showAlertsModal, showChaserTaskModal, showPrepModal, prepCoachModal.show, agentRefModal.show, duplicateModal.show]);
 
   useEffect(() => {
     const t = Date.now();
@@ -739,6 +741,95 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
   const totalAgentFiles = agentRefStats.reduce((sum, s) => sum + s.agentCount, 0);
   const totalRefFiles = agentRefStats.reduce((sum, s) => sum + s.referralCount, 0);
 
+  // Compute duplicate entries across student records (by email and/or mobile)
+  const getDuplicateStats = () => {
+    let dataset = students;
+    if (duplicateFilterSession !== 'All') {
+      dataset = dataset.filter(s => s.session === duplicateFilterSession);
+    }
+
+    // Maps for normalized email and mobile
+    const emailMap = new Map();
+    const phoneMap = new Map();
+
+    const normalizeEmail = (e) => (e || '').toLowerCase().trim();
+    const normalizePhone = (p) => (p || '').replace(/[\s\-\(\)\+]/g, '').trim();
+
+    dataset.forEach(s => {
+      const em = normalizeEmail(s.email);
+      if (em) {
+        if (!emailMap.has(em)) emailMap.set(em, []);
+        emailMap.get(em).push(s);
+      }
+      const ph = normalizePhone(s.mobile);
+      if (ph && ph.length >= 7) {
+        if (!phoneMap.has(ph)) phoneMap.set(ph, []);
+        phoneMap.get(ph).push(s);
+      }
+    });
+
+    const dupEmailStudents = new Set();
+    const dupPhoneStudents = new Set();
+
+    const emailClusters = [];
+    emailMap.forEach((list, key) => {
+      if (list.length > 1) {
+        emailClusters.push({ key, type: 'email', students: list });
+        list.forEach(s => dupEmailStudents.add(s._id || s.id));
+      }
+    });
+
+    const phoneClusters = [];
+    phoneMap.forEach((list, key) => {
+      if (list.length > 1) {
+        phoneClusters.push({ key, type: 'mobile', students: list });
+        list.forEach(s => dupPhoneStudents.add(s._id || s.id));
+      }
+    });
+
+    let duplicateBothList = [];
+    let duplicateEmailOnlyList = [];
+    let duplicatePhoneOnlyList = [];
+    let uniqueList = [];
+
+    dataset.forEach(s => {
+      const sid = s._id || s.id;
+      const hasDupEmail = dupEmailStudents.has(sid);
+      const hasDupPhone = dupPhoneStudents.has(sid);
+
+      if (hasDupEmail && hasDupPhone) {
+        duplicateBothList.push(s);
+      } else if (hasDupEmail) {
+        duplicateEmailOnlyList.push(s);
+      } else if (hasDupPhone) {
+        duplicatePhoneOnlyList.push(s);
+      } else {
+        uniqueList.push(s);
+      }
+    });
+
+    const total = dataset.length;
+    const totalDuplicates = duplicateBothList.length + duplicateEmailOnlyList.length + duplicatePhoneOnlyList.length;
+
+    return {
+      total,
+      totalDuplicates,
+      uniqueCount: uniqueList.length,
+      duplicateEmailCount: duplicateEmailOnlyList.length,
+      duplicatePhoneCount: duplicatePhoneOnlyList.length,
+      duplicateBothCount: duplicateBothList.length,
+      uniqueList,
+      duplicateEmailOnlyList,
+      duplicatePhoneOnlyList,
+      duplicateBothList,
+      emailClusters,
+      phoneClusters,
+      duplicateRatio: total > 0 ? ((totalDuplicates / total) * 100).toFixed(1) : '0'
+    };
+  };
+
+  const duplicateStats = getDuplicateStats();
+
   const sfeTotal = colSfeAwaiting.length + colSfeOngoing.length + colSfeUrgent.length + colSfeSubmitted.length + colSfeApproved.length;
   const sfeCompletionRate = sfeTotal > 0 ? Math.round((colSfeApproved.length / sfeTotal) * 100) : 0;
 
@@ -1131,6 +1222,219 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
             })}
           </div>
         )}
+      </div>
+
+      {/* Duplicate Entries Analysis: SVG Pie / Donut Chart */}
+      <div style={{ background: 'var(--bg-surface)', padding: '1.5rem 2rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.06)', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.2rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.2rem' }}>
+              🥧 Duplicate Entries Analysis (Email & Mobile Numbers)
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              Interactive pie chart highlighting unique students vs duplicate lead records. Click any slice or legend item to view and audit clustered duplicate files.
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Filter Session:</span>
+            <SearchableSelect 
+              value={duplicateFilterSession}
+              onChange={e => setDuplicateFilterSession(e.target.value)}
+              style={{ background: 'var(--bg-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem' }}
+            >
+              <option value="All">All Sessions</option>
+              {uniqueSessions.map(s => <option key={s} value={s}>{s}</option>)}
+            </SearchableSelect>
+          </div>
+        </div>
+
+        {(() => {
+          const total = duplicateStats.total;
+          if (total === 0) {
+            return (
+              <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                No student records logged in this session.
+              </div>
+            );
+          }
+
+          // Segments definition
+          const segments = [
+            {
+              id: 'unique',
+              label: 'Unique Records',
+              count: duplicateStats.uniqueCount,
+              color: '#10b981',
+              bgColor: 'rgba(16, 185, 129, 0.12)',
+              description: 'Students with unique email & phone'
+            },
+            {
+              id: 'dup_email',
+              label: 'Duplicate Email Only',
+              count: duplicateStats.duplicateEmailCount,
+              color: '#6366f1',
+              bgColor: 'rgba(99, 102, 241, 0.12)',
+              description: 'Shared email across 2+ students'
+            },
+            {
+              id: 'dup_mobile',
+              label: 'Duplicate Mobile Only',
+              count: duplicateStats.duplicatePhoneCount,
+              color: '#f59e0b',
+              bgColor: 'rgba(245, 158, 11, 0.12)',
+              description: 'Shared phone number across 2+ students'
+            },
+            {
+              id: 'dup_both',
+              label: 'Duplicate Email & Mobile',
+              count: duplicateStats.duplicateBothCount,
+              color: '#ef4444',
+              bgColor: 'rgba(239, 68, 68, 0.12)',
+              description: 'Both email and phone duplicated'
+            }
+          ];
+
+          // Compute SVG donut arcs
+          const radius = 80;
+          const strokeWidth = 36;
+          const circumference = 2 * Math.PI * radius;
+          let accumulatedAngle = 0;
+
+          const arcPaths = segments.map(seg => {
+            const fraction = total > 0 ? seg.count / total : 0;
+            const strokeDasharray = `${fraction * circumference} ${circumference}`;
+            const strokeDashoffset = -accumulatedAngle * circumference;
+            accumulatedAngle += fraction;
+            return {
+              ...seg,
+              fraction,
+              percentage: (fraction * 100).toFixed(1),
+              strokeDasharray,
+              strokeDashoffset
+            };
+          });
+
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 320px) 1fr', gap: '2.5rem', alignItems: 'center' }}>
+              {/* Pie / Donut SVG Graphic */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+                  {/* Background Circle */}
+                  <circle cx="110" cy="110" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} />
+                  {/* Slices */}
+                  {arcPaths.map(arc => {
+                    if (arc.count === 0) return null;
+                    return (
+                      <circle
+                        key={arc.id}
+                        cx="110"
+                        cy="110"
+                        r={radius}
+                        fill="none"
+                        stroke={arc.color}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={arc.strokeDasharray}
+                        strokeDashoffset={arc.strokeDashoffset}
+                        style={{ cursor: 'pointer', transition: 'stroke-width 0.2s, opacity 0.2s' }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.strokeWidth = `${strokeWidth + 6}`;
+                          e.currentTarget.style.opacity = '0.9';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.strokeWidth = `${strokeWidth}`;
+                          e.currentTarget.style.opacity = '1';
+                        }}
+                        onClick={() => setDuplicateModal({ show: true, type: arc.id, cluster: null })}
+                      >
+                        <title>{`${arc.label}: ${arc.count} (${arc.percentage}%) - Click to drilldown`}</title>
+                      </circle>
+                    );
+                  })}
+                </svg>
+
+                {/* Donut Center Summary */}
+                <div 
+                  onClick={() => setDuplicateModal({ show: true, type: 'all_duplicates', cluster: null })}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    textAlign: 'center',
+                    pointerEvents: 'auto',
+                    cursor: 'pointer'
+                  }}
+                  title="Click to view all duplicates"
+                >
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: duplicateStats.totalDuplicates > 0 ? '#ef4444' : '#10b981', lineHeight: 1.1 }}>
+                    {duplicateStats.totalDuplicates}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    {duplicateStats.duplicateRatio}% Dupes
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                    of {total} Total
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend & Details Breakdown */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem' }}>
+                {arcPaths.map(seg => {
+                  return (
+                    <div 
+                      key={seg.id}
+                      onClick={() => setDuplicateModal({ show: true, type: seg.id, cluster: null })}
+                      style={{
+                        background: 'var(--bg-color)',
+                        border: '1px solid var(--border-color)',
+                        borderLeft: `4px solid ${seg.color}`,
+                        borderRadius: '8px',
+                        padding: '0.9rem 1rem',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, border-color 0.15s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '0.4rem'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = seg.color;
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color }}></span>
+                          {seg.label}
+                        </span>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: seg.color, background: seg.bgColor, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                          {seg.percentage}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '0.2rem' }}>
+                        <strong style={{ fontSize: '1.35rem', color: 'var(--text-primary)' }}>
+                          {seg.count}
+                        </strong>
+                        <span style={{ fontSize: '0.75rem', color: '#6366f1', textDecoration: 'underline' }}>
+                          View Leads ➔
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                        {seg.description}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Admin Task Workflow Widget Section */}
@@ -3243,6 +3547,276 @@ const Dashboard = ({ currentUser, currentUserRole, currentUserData }) => {
                               <strong style={{ color: 'var(--text-primary)' }}>{s.referral}</strong>
                             </div>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Duplicate Leads Drilldown Modal */}
+      {duplicateModal.show && (() => {
+        const { type, cluster } = duplicateModal;
+
+        let displayList = [];
+        let modalTitle = 'Duplicate Leads Audit';
+        let badgeColor = '#ef4444';
+
+        if (cluster) {
+          displayList = cluster.students || [];
+          modalTitle = `Shared ${cluster.type === 'email' ? 'Email' : 'Mobile'}: "${cluster.key}"`;
+          badgeColor = cluster.type === 'email' ? '#6366f1' : '#f59e0b';
+        } else if (type === 'unique') {
+          displayList = duplicateStats.uniqueList;
+          modalTitle = 'Unique Student Records (No Duplicates)';
+          badgeColor = '#10b981';
+        } else if (type === 'dup_email') {
+          displayList = duplicateStats.duplicateEmailOnlyList;
+          modalTitle = 'Students with Duplicate Email Address';
+          badgeColor = '#6366f1';
+        } else if (type === 'dup_mobile') {
+          displayList = duplicateStats.duplicatePhoneOnlyList;
+          modalTitle = 'Students with Duplicate Mobile Number';
+          badgeColor = '#f59e0b';
+        } else if (type === 'dup_both') {
+          displayList = duplicateStats.duplicateBothList;
+          modalTitle = 'Students with Both Duplicate Email & Mobile';
+          badgeColor = '#ef4444';
+        } else {
+          // all duplicates
+          displayList = [
+            ...duplicateStats.duplicateBothList,
+            ...duplicateStats.duplicateEmailOnlyList,
+            ...duplicateStats.duplicatePhoneOnlyList
+          ];
+          modalTitle = 'All Duplicate Student Lead Records';
+          badgeColor = '#ef4444';
+        }
+
+        // Apply in-modal search query
+        if (modalSearchTerm.trim()) {
+          const q = modalSearchTerm.toLowerCase();
+          displayList = displayList.filter(s => 
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            (s.email && s.email.toLowerCase().includes(q)) ||
+            (s.mobile && s.mobile.toLowerCase().includes(q)) ||
+            (s.recruiter && s.recruiter.toLowerCase().includes(q)) ||
+            (s.studentId && s.studentId.toLowerCase().includes(q))
+          );
+        }
+
+        return (
+          <div className="dms-modal-backdrop" onClick={() => setDuplicateModal({ show: false, type: 'all', cluster: null })}>
+            <div 
+              className="dms-modal-content" 
+              onClick={e => e.stopPropagation()} 
+              style={{ maxWidth: '980px', width: '92%', height: '85vh', display: 'flex', flexDirection: 'column' }}
+            >
+              {/* Modal Header */}
+              <div className="dms-modal-header" style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem' }}>
+                    <span>🥧</span> {modalTitle}
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    {cluster ? 'Listing all student files associated with this exact identifier' : 'Inspect matching student records and verify contact information'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+                  {/* Category switcher pill tabs */}
+                  <div style={{ display: 'flex', background: 'var(--bg-color)', padding: '0.2rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    <button 
+                      onClick={() => setDuplicateModal({ show: true, type: 'all_duplicates', cluster: null })}
+                      style={{ border: 'none', background: type === 'all_duplicates' && !cluster ? '#ef4444' : 'transparent', color: type === 'all_duplicates' && !cluster ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      All Dupes ({duplicateStats.totalDuplicates})
+                    </button>
+                    <button 
+                      onClick={() => setDuplicateModal({ show: true, type: 'dup_email', cluster: null })}
+                      style={{ border: 'none', background: type === 'dup_email' && !cluster ? '#6366f1' : 'transparent', color: type === 'dup_email' && !cluster ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      Email ({duplicateStats.duplicateEmailCount})
+                    </button>
+                    <button 
+                      onClick={() => setDuplicateModal({ show: true, type: 'dup_mobile', cluster: null })}
+                      style={{ border: 'none', background: type === 'dup_mobile' && !cluster ? '#f59e0b' : 'transparent', color: type === 'dup_mobile' && !cluster ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      Mobile ({duplicateStats.duplicatePhoneCount})
+                    </button>
+                    <button 
+                      onClick={() => setDuplicateModal({ show: true, type: 'dup_both', cluster: null })}
+                      style={{ border: 'none', background: type === 'dup_both' && !cluster ? '#dc2626' : 'transparent', color: type === 'dup_both' && !cluster ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      Both ({duplicateStats.duplicateBothCount})
+                    </button>
+                    <button 
+                      onClick={() => setDuplicateModal({ show: true, type: 'unique', cluster: null })}
+                      style={{ border: 'none', background: type === 'unique' && !cluster ? '#10b981' : 'transparent', color: type === 'unique' && !cluster ? '#fff' : 'var(--text-secondary)', padding: '0.3rem 0.65rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                    >
+                      Unique ({duplicateStats.uniqueCount})
+                    </button>
+                  </div>
+
+                  <input 
+                    type="text" 
+                    placeholder="Search leads in this view..." 
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    style={{ background: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', padding: '0.35rem 0.7rem', borderRadius: '6px', fontSize: '0.8rem', width: '200px' }}
+                  />
+
+                  <button 
+                    onClick={() => setDuplicateModal({ show: false, type: 'all', cluster: null })} 
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', padding: '0 0.4rem' }}
+                  >
+                    ✗
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="dms-modal-body" style={{ padding: '1.5rem', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', padding: '0.8rem 1rem', background: 'var(--bg-color)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    Session: <strong style={{ color: 'var(--text-primary)' }}>{duplicateFilterSession}</strong> | Filter Category: <strong style={{ color: 'var(--text-primary)' }}>{type.toUpperCase().replace('_', ' ')}</strong>
+                  </div>
+                  <span style={{ background: badgeColor, color: '#fff', padding: '0.25rem 0.8rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: 'bold' }}>
+                    {displayList.length} Leads
+                  </span>
+                </div>
+
+                {/* Clustered Quick Buttons when viewing All Dupes or Specific group */}
+                {!cluster && (type === 'dup_email' || type === 'all_duplicates') && duplicateStats.emailClusters.length > 0 && (
+                  <div style={{ marginBottom: '1.2rem', background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)', padding: '0.8rem 1rem', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#6366f1', marginBottom: '0.5rem' }}>
+                      ✉️ Clustered Duplicate Email Groups ({duplicateStats.emailClusters.length}):
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {duplicateStats.emailClusters.slice(0, 8).map(cl => (
+                        <button
+                          key={cl.key}
+                          onClick={() => setDuplicateModal({ show: true, type: 'dup_email', cluster: cl })}
+                          style={{
+                            background: 'var(--bg-surface)',
+                            border: '1px solid rgba(99, 102, 241, 0.4)',
+                            color: 'var(--text-primary)',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                          }}
+                        >
+                          <span>{cl.key}</span>
+                          <strong style={{ color: '#6366f1' }}>({cl.students.length})</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!cluster && (type === 'dup_mobile' || type === 'all_duplicates') && duplicateStats.phoneClusters.length > 0 && (
+                  <div style={{ marginBottom: '1.2rem', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '0.8rem 1rem', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f59e0b', marginBottom: '0.5rem' }}>
+                      📞 Clustered Duplicate Phone Groups ({duplicateStats.phoneClusters.length}):
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {duplicateStats.phoneClusters.slice(0, 8).map(cl => (
+                        <button
+                          key={cl.key}
+                          onClick={() => setDuplicateModal({ show: true, type: 'dup_mobile', cluster: cl })}
+                          style={{
+                            background: 'var(--bg-surface)',
+                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                            color: 'var(--text-primary)',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem'
+                          }}
+                        >
+                          <span>{cl.key}</span>
+                          <strong style={{ color: '#f59e0b' }}>({cl.students.length})</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {displayList.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    No leads match this duplicate criteria.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                    {displayList.map((s, idx) => {
+                      return (
+                        <div 
+                          key={(s._id || s.id || '') + '-' + idx} 
+                          style={{
+                            background: 'var(--bg-surface)',
+                            padding: '1.2rem',
+                            borderRadius: '10px',
+                            border: '1px solid var(--border-color)',
+                            borderLeft: `4px solid ${badgeColor}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.6rem',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.03)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                              <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                                {s.name || 'Unnamed Student'}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                {s.studentId ? `ID: ${s.studentId}` : ''} {s.session ? `• ${s.session}` : ''}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'var(--bg-color)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+                              {s.appStatus || 'Awaiting'}
+                            </span>
+                          </div>
+
+                          {/* Email info with duplicate indicator */}
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(99, 102, 241, 0.06)', padding: '0.35rem 0.6rem', borderRadius: '4px' }}>
+                            <span>✉️</span>
+                            <span style={{ wordBreak: 'break-all' }}>{s.email || 'No email provided'}</span>
+                          </div>
+
+                          {/* Mobile info with duplicate indicator */}
+                          <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(245, 158, 11, 0.06)', padding: '0.35rem 0.6rem', borderRadius: '4px' }}>
+                            <span>📞</span>
+                            <span>{s.mobile || 'No mobile provided'}</span>
+                          </div>
+
+                          {s.courseAndCampus1 && (
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                              🎓 {s.courseAndCampus1}
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', fontSize: '0.78rem' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>
+                              Recruiter: <strong style={{ color: 'var(--text-primary)' }}>{s.recruiter || 'Unassigned'}</strong>
+                            </span>
+                            {s.intStatus && (
+                              <span style={{ color: 'var(--accent-color)', fontWeight: 600 }}>
+                                {s.intStatus}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
